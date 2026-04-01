@@ -62,6 +62,13 @@ define([], function() {
             '<div class="ml-guided__body"></div>' +
             '<p class="ml-feedback ml-guided__fb" role="status"></p>';
         container.appendChild(root);
+        /* Evita que clics/touches lleguen al tema Moodle (drawer, bloques laterales). */
+        function stopPracticeBubble(ev) {
+            ev.stopPropagation();
+        }
+        ['click', 'mousedown', 'touchstart'].forEach(function(ename) {
+            root.addEventListener(ename, stopPracticeBubble, false);
+        });
         var body = root.querySelector('.ml-guided__body');
         var fill = root.querySelector('.ml-guided__fill');
         var fb = root.querySelector('.ml-guided__fb');
@@ -74,6 +81,12 @@ define([], function() {
                 return 'C' + parseInt(x, 10);
             }).join(', ');
             kickerEl.appendChild(tag);
+        }
+        if (t.practiceAsideTip && kickerEl && kickerEl.parentNode) {
+            var tipAside = document.createElement('p');
+            tipAside.className = 'ml-guided__tip';
+            tipAside.textContent = t.practiceAsideTip;
+            kickerEl.parentNode.insertBefore(tipAside, kickerEl.nextSibling);
         }
 
         function syncBar() {
@@ -167,6 +180,8 @@ define([], function() {
                 var shuf = shuffleOrder(labels.length, hashActivityKey(helpers.activityKey || 'x'));
                 var wrap = document.createElement('div');
                 wrap.className = 'ml-guided__order';
+                wrap.setAttribute('role', 'group');
+                wrap.setAttribute('aria-label', t.practiceOrderHint || '');
                 var expected = 0;
                 shuf.forEach(function(idx) {
                     var b = document.createElement('button');
@@ -174,7 +189,10 @@ define([], function() {
                     b.className = 'ml-btn ml-btn--sec ml-guided__ord-btn';
                     b.textContent = labels[idx];
                     b.setAttribute('data-idx', String(idx));
-                    b.addEventListener('click', function() {
+                    b.addEventListener('click', function(ev) {
+                        if (ev.stopPropagation) {
+                            ev.stopPropagation();
+                        }
                         var di = parseInt(b.getAttribute('data-idx'), 10);
                         if (di === seq[expected]) {
                             b.classList.add('ml-guided__ord-btn--ok');

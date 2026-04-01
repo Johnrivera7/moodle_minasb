@@ -1,9 +1,16 @@
 <?xml version="1.0"?>
 <libraries>
   <library>
+    <location>js/three.module.min.js</location>
+    <name>Three.js (ES modules build)</name>
+    <version>0.160.1</version>
+    <license>MIT</license>
+    <licenseversion></licenseversion>
+  </library>
+  <library>
     <location>js/three.min.js</location>
-    <name>Three.js</name>
-    <version>0.160.0</version>
+    <name>Three.js (UMD legacy fallback)</name>
+    <version>0.159.x</version>
     <license>MIT</license>
     <licenseversion></licenseversion>
   </library>

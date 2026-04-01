@@ -1101,6 +1101,8 @@ body:not(.path-mod-minaslab) .minaslab-app {
     gap: 0;
     flex: 1;
     min-height: 320px;
+    position: relative;
+    isolation: isolate;
 }
 
 @media (max-width: 960px) {
@@ -1111,6 +1113,8 @@ body:not(.path-mod-minaslab) .minaslab-app {
 
 .ml-pro__viewport {
     position: relative;
+    z-index: 0;
+    overflow: hidden;
     padding: 0.75rem 1rem 1rem;
     min-height: min(56vh, 560px);
     display: flex;
@@ -1234,6 +1238,8 @@ body:not(.path-mod-minaslab) .minaslab-app {
 }
 
 .ml-pro__aside {
+    position: relative;
+    z-index: 2;
     padding: 1rem 1.25rem 1.25rem;
     border-left: 1px solid rgba(255, 255, 255, 0.07);
     background: rgba(0, 0, 0, 0.22);
@@ -1242,6 +1248,7 @@ body:not(.path-mod-minaslab) .minaslab-app {
     color: #c5ced9;
     max-height: 70vh;
     overflow-y: auto;
+    pointer-events: auto;
 }
 
 @media (max-width: 960px) {
@@ -1546,11 +1553,27 @@ body:not(.path-mod-minaslab) .minaslab-app {
     cursor: pointer;
 }
 
+.ml-guided__tip {
+    margin: -0.15rem 0 0.75rem;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: #a8b8c8;
+    background: rgba(61, 214, 198, 0.08);
+    border: 1px solid rgba(61, 214, 198, 0.22);
+    border-radius: 8px;
+}
+
 .ml-guided__order {
     display: flex;
     flex-wrap: wrap;
     gap: 0.45rem;
     margin-bottom: 0.5rem;
+}
+
+.ml-guided__ord-btn {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.85rem;
 }
 
 .ml-guided__ord-btn--ok {

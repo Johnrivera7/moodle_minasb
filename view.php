@@ -86,6 +86,7 @@ $bootstrap = [
         'whatToDo' => $str('lab_what_to_do'),
         'practiceKicker' => $str('practice_kicker'),
         'practiceOrderHint' => $str('practice_order_hint'),
+        'practiceAsideTip' => $str('practice_aside_tip'),
         'practiceDataFocus' => $str('practice_data_focus'),
         'flowCompetencyHint' => $str('flow_competency_hint'),
         'officeSensitivityTitle' => $str('office_sensitivity_title'),

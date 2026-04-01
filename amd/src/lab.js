@@ -17,8 +17,18 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             code = code.slice(1);
         }
         var ts = code.trimStart();
-        if (ts.indexOf('console.warn') !== 0) {
-            code = 'console.warn(\'three.js (MinasLab bundle)\'),\n' + code;
+        /* Quitar la primera línea de deprecación UMD (r150+); el IIFE sigue siendo válido con prefijo "0,". */
+        if (ts.indexOf('deprecated with r150') !== -1 && ts.indexOf('console.warn') === 0) {
+            var nl = ts.indexOf('\n');
+            if (nl !== -1) {
+                ts = ts.slice(nl + 1);
+            }
+            code = ts;
+        }
+        ts = String(code).trimStart();
+        /* Expresión coma inicial requerida por el bundle UMD (equivalente al warn oficial). */
+        if (ts.indexOf('console.warn') !== 0 && ts.indexOf('0,') !== 0) {
+            code = '0,\n' + code;
         }
         return code;
     }
@@ -30,8 +40,9 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             THREE = window.THREE;
             return done();
         }
-        var baseUrl = wwwroot + '/mod/minaslab/js/three.min.js';
-        var url = baseUrl + '?v=' + encodeURIComponent(assetV);
+        /* Build oficial ES modules (Three r160+). Sin bundle UMD deprecado (build/three.min.js). */
+        var moduleUrl = wwwroot + '/mod/minaslab/js/three.module.min.js?v=' + encodeURIComponent(assetV);
+        var umdUrl = wwwroot + '/mod/minaslab/js/three.min.js?v=' + encodeURIComponent(assetV);
         var prevDefine = typeof window.define === 'function' ? window.define : undefined;
 
         function restoreDefine() {
@@ -50,12 +61,12 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             }
         }
 
-        function finishLoad() {
+        function finishUmdLoad() {
             THREE = window.THREE;
             if (!THREE && typeof window.console !== 'undefined' && window.console.error) {
                 window.console.error(
-                    'MinasLab: tras cargar three.js, window.THREE sigue vacío. ' +
-                    'Comprueba mod/minaslab/js/three.min.js y la consola por errores de sintaxis.'
+                    'MinasLab: tras cargar three UMD, window.THREE sigue vacío. ' +
+                    'Revisa mod/minaslab/js/three.min.js y la consola.'
                 );
             }
             done();
@@ -71,7 +82,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             s.onload = function() {
                 URL.revokeObjectURL(blobUrl);
                 restoreDefine();
-                finishLoad();
+                finishUmdLoad();
             };
             s.onerror = function() {
                 URL.revokeObjectURL(blobUrl);
@@ -84,11 +95,11 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
 
         function loadScriptTagDirect() {
             var s = document.createElement('script');
-            s.src = url;
+            s.src = umdUrl;
             s.async = false;
             s.onload = function() {
                 restoreDefine();
-                finishLoad();
+                finishUmdLoad();
             };
             s.onerror = function() {
                 restoreDefine();
@@ -101,23 +112,48 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             document.head.appendChild(s);
         }
 
-        if (typeof window.fetch === 'function') {
-            window.fetch(url, {credentials: 'same-origin', cache: 'no-store'})
-                .then(function(r) {
-                    if (!r.ok) {
-                        throw new Error('HTTP ' + r.status);
-                    }
-                    return r.text();
-                })
-                .then(function(text) {
-                    injectScriptFromCode(text);
-                })
-                .catch(function() {
-                    loadScriptTagDirect();
-                });
-        } else {
-            loadScriptTagDirect();
+        function loadLegacyUmd() {
+            if (typeof window.fetch === 'function') {
+                window.fetch(umdUrl, {credentials: 'same-origin', cache: 'no-store'})
+                    .then(function(r) {
+                        if (!r.ok) {
+                            throw new Error('HTTP ' + r.status);
+                        }
+                        return r.text();
+                    })
+                    .then(function(text) {
+                        injectScriptFromCode(text);
+                    })
+                    .catch(function() {
+                        loadScriptTagDirect();
+                    });
+            } else {
+                loadScriptTagDirect();
+            }
         }
+
+        function tryEsModule() {
+            var p;
+            try {
+                /* import() dinámico: compatible con el build three.module.min.js recomendado por Three.js. */
+                p = import(moduleUrl);
+            } catch (e) {
+                loadLegacyUmd();
+                return;
+            }
+            p.then(function(mod) {
+                THREE = mod;
+                window.THREE = mod;
+                done();
+            }).catch(function(err) {
+                if (typeof window.console !== 'undefined' && window.console.warn) {
+                    window.console.warn('MinasLab: no se cargó three.module.min.js; usando UMD.', err);
+                }
+                loadLegacyUmd();
+            });
+        }
+
+        tryEsModule();
     }
 
     function esc(s) {
