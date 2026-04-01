@@ -101,6 +101,12 @@ $string['lab_conceptual'] = 'Educational simulation — not a substitute for fie
 $string['lab_what_to_do'] = 'Complete the guided practice (right panel): checklists, work sequence, calculations, or questions. Use the 3D view for context. Footer progress updates as you finish steps; then save or submit your grade.';
 $string['practice_kicker'] = 'Guided practice — complete all 3 steps (competency demonstration)';
 $string['practice_order_hint'] = 'Click each action in the correct work order.';
+$string['practice_cycle_order_intro'] = 'Explore the 3D scene: use <strong>Cycle stages</strong> under the view (Drilling → Loading → Haulage → Dump) to frame each zone. Then order the cards to match the real process.';
+$string['pit_cycle_tour_label'] = 'Stages:';
+$string['pit_cycle_stage_perf'] = 'Drilling';
+$string['pit_cycle_stage_load'] = 'Loading';
+$string['pit_cycle_stage_haul'] = 'Haulage';
+$string['pit_cycle_stage_dump'] = 'Dump';
 $string['practice_data_focus'] = 'Numbers and scenes are didactic practice datasets (they do not replace mine databases, tools such as RecMin, or real studies).';
 $string['flow_competency_hint'] = 'Plant-style sequence: ties to process-mineral competencies and traceability of mass flows.';
 $string['office_sensitivity_title'] = 'Economic sensitivity (indicative NPV)';
@@ -110,7 +116,7 @@ $string['scene_legend_algebra'] = '3D: blast face with drill holes; frame = 2×2
 $string['scene_legend_tunnel'] = '3D: gallery with rails and ground support (underground operations).';
 $string['scene_legend_pit'] = '3D: open pit (technical-style view) — blue lines = benches/berms; dark strip = ramp; outer contours = terrain; equipment on levels.';
 $string['scene_legend_pit_berm'] = 'Reference berm width (step 1): ## m.';
-$string['scene_legend_pit_cycle'] = '3D: open-pit cycle — stage colours (drilling, loading, haulage, dump); trucks moving on the ramp; dust at drills; illustrative scale.';
+$string['scene_legend_pit_cycle'] = 'Open-pit cycle: haul trucks on a spiral ramp, drills, excavator and waste dump. Use «Stages» to focus each phase. Illustrative scale.';
 $string['pit_preset_iso'] = 'ISO view';
 $string['pit_preset_plan'] = 'Plan';
 $string['pit_preset_section'] = 'Section';

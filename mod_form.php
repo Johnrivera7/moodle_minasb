@@ -50,6 +50,10 @@ class mod_minaslab_mod_form extends moodleform_mod {
         parent::data_preprocessing($defaultvalues);
 
         if (!empty($this->current->instance) && !empty($this->current->coursemodule)) {
+            // file_prepare_standard_editor() asigna propiedades (p. ej. intro_editor) sobre stdClass; con array falla en PHP 8.2+.
+            if (is_array($defaultvalues)) {
+                $defaultvalues = (object) $defaultvalues;
+            }
             $context = context_module::instance($this->current->coursemodule);
             $opts = minaslab_intro_editor_options($context);
             $defaultvalues = file_prepare_standard_editor(

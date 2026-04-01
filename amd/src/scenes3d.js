@@ -1178,61 +1178,133 @@ define([], function() {
             return spr;
         }
 
-        function makeHaulTruck(bodyCol) {
+        function buildSpiralCurve(THREE) {
+            function rawPos(u) {
+                u = ((u % 1) + 1) % 1;
+                var turns = 5.15 * Math.PI * 2;
+                var ang = u * turns;
+                var r = 32.5 - u * 24.5;
+                var y = u * 15.1 + 0.35;
+                return new THREE.Vector3(Math.cos(ang) * r, y, Math.sin(ang) * r);
+            }
+            var pts = [];
+            var si;
+            for (si = 0; si <= 220; si++) {
+                pts.push(rawPos(si / 220));
+            }
+            var curve = new THREE.CatmullRomCurve3(pts);
+            return {
+                curve: curve,
+                pointAt: function(u) {
+                    u = ((u % 1) + 1) % 1;
+                    return curve.getPointAt(u);
+                },
+                tangentAt: function(u) {
+                    u = ((u % 1) + 1) % 1;
+                    return curve.getTangentAt(u);
+                }
+            };
+        }
+
+        function makeMiningHaulTruck(THREE, primaryHex) {
             var g = new THREE.Group();
-            var mat = new THREE.MeshStandardMaterial({color: bodyCol, metalness: 0.28, roughness: 0.68});
-            var cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.2, 3), mat);
-            cab.position.set(0, 1.4, 2.2);
+            var dark = new THREE.MeshStandardMaterial({color: 0x1a1a1a, roughness: 0.88, metalness: 0.12});
+            var body = new THREE.MeshStandardMaterial({color: primaryHex, roughness: 0.58, metalness: 0.38});
+            var chrome = new THREE.MeshStandardMaterial({color: 0xb8c0c8, roughness: 0.4, metalness: 0.55});
+            var tire = new THREE.MeshStandardMaterial({color: 0x0d0d0d, roughness: 0.95, metalness: 0.02});
+            var chassis = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.7, 13.2), dark);
+            chassis.position.set(0, 0.58, -0.6);
+            chassis.castShadow = true;
+            g.add(chassis);
+            var cab = new THREE.Mesh(new THREE.BoxGeometry(3.4, 3.2, 3.6), body);
+            cab.position.set(0, 2.25, 4.1);
             cab.castShadow = true;
             g.add(cab);
-            var bed = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.4, 7), mat);
-            bed.position.set(0, 1.1, -2.5);
-            bed.castShadow = true;
-            g.add(bed);
-            var w1;
-            for (w1 = 0; w1 < 4; w1++) {
-                var wh = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.55, 0.55, 0.4, 10),
-                    new THREE.MeshStandardMaterial({color: 0x222222, roughness: 0.9})
-                );
-                wh.rotation.z = Math.PI / 2;
-                wh.position.set(w1 % 2 === 0 ? -1.4 : 1.4, 0.35, (w1 < 2 ? 3.5 : -4.2));
-                wh.castShadow = true;
-                g.add(wh);
+            var glassMat = new THREE.MeshStandardMaterial({
+                color: 0x1a3048,
+                roughness: 0.2,
+                metalness: 0.45,
+                transparent: true,
+                opacity: 0.78
+            });
+            var wind = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.5, 0.1), glassMat);
+            wind.position.set(0, 2.45, 5.35);
+            g.add(wind);
+            var hood = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.0, 3.2), body);
+            hood.position.set(0, 1.65, 1.35);
+            hood.castShadow = true;
+            g.add(hood);
+            var grille = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.95, 0.2), dark);
+            grille.position.set(0, 1.1, 2.95);
+            g.add(grille);
+            var bedGroup = new THREE.Group();
+            bedGroup.position.set(0, 1.35, -2.2);
+            var bedFloor = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.4, 8.8), body);
+            bedFloor.position.set(0, 0, -2.8);
+            bedFloor.castShadow = true;
+            bedGroup.add(bedFloor);
+            var railGeo = new THREE.BoxGeometry(0.22, 1.0, 8.8);
+            var railL = new THREE.Mesh(railGeo, chrome);
+            railL.position.set(-2.0, 0.55, -2.8);
+            railL.castShadow = true;
+            bedGroup.add(railL);
+            var railR = new THREE.Mesh(railGeo, chrome);
+            railR.position.set(2.0, 0.55, -2.8);
+            railR.castShadow = true;
+            bedGroup.add(railR);
+            var tail = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.2, 0.35), body);
+            tail.position.set(0, 0.5, -7.15);
+            tail.castShadow = true;
+            bedGroup.add(tail);
+            g.add(bedGroup);
+            function addWheelPair(xl, xr, z, rad) {
+                var wmeshL = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, 0.48, 16), tire);
+                wmeshL.rotation.z = Math.PI / 2;
+                wmeshL.position.set(xl, rad * 0.92, z);
+                wmeshL.castShadow = true;
+                g.add(wmeshL);
+                var wmeshR = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, 0.48, 16), tire);
+                wmeshR.rotation.z = Math.PI / 2;
+                wmeshR.position.set(xr, rad * 0.92, z);
+                wmeshR.castShadow = true;
+                g.add(wmeshR);
             }
-            return g;
+            addWheelPair(-1.6, 1.6, 4.5, 0.72);
+            addWheelPair(-1.6, 1.6, -0.2, 0.78);
+            addWheelPair(-1.45, 1.45, -5.2, 0.82);
+            addWheelPair(-1.95, 1.95, -5.2, 0.82);
+            var stack = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.35, 8), dark);
+            stack.position.set(1.5, 3.5, 4.8);
+            g.add(stack);
+            return {root: g, bedGroup: bedGroup};
         }
 
-        function spiralPos(u) {
-            u = ((u % 1) + 1) % 1;
-            var turns = 5.5 * Math.PI * 2;
-            var ang = u * turns;
-            var r = 34 - u * 26;
-            var y = u * 15.5 + 0.35;
-            return new THREE.Vector3(Math.cos(ang) * r, y, Math.sin(ang) * r);
-        }
-
-        function spiralTan(u) {
-            var e = 0.004;
-            var p0 = spiralPos(u);
-            var p1 = spiralPos(u + e);
-            return p1.clone().sub(p0).normalize();
-        }
+        var pathCurve = buildSpiralCurve(THREE);
 
         var scene = new THREE.Scene();
-        var fogC = 0xc4b8a8;
-        scene.fog = new THREE.Fog(fogC, 48, 280);
+        var fogC = 0xc8bdb0;
+        scene.fog = new THREE.Fog(fogC, 55, 320);
         var skyCv = document.createElement('canvas');
-        skyCv.width = 8;
+        skyCv.width = 512;
         skyCv.height = 256;
         var skx = skyCv.getContext('2d');
         var skg = skx.createLinearGradient(0, 0, 0, 256);
-        skg.addColorStop(0, '#7eb8e8');
-        skg.addColorStop(0.42, '#d4c4a8');
-        skg.addColorStop(1, '#a89878');
+        skg.addColorStop(0, '#87b8e8');
+        skg.addColorStop(0.35, '#c9d8ec');
+        skg.addColorStop(0.55, '#d8c8a8');
+        skg.addColorStop(0.78, '#b8a888');
+        skg.addColorStop(1, '#9a8a72');
         skx.fillStyle = skg;
-        skx.fillRect(0, 0, 8, 256);
+        skx.fillRect(0, 0, 512, 256);
+        var ci;
+        for (ci = 0; ci < 18; ci++) {
+            skx.fillStyle = 'rgba(255,255,255,' + (0.12 + Math.random() * 0.18) + ')';
+            skx.beginPath();
+            skx.ellipse(40 + ci * 28 + Math.random() * 20, 30 + (ci % 4) * 40, 22 + Math.random() * 18, 12 + Math.random() * 8, 0, 0, Math.PI * 2);
+            skx.fill();
+        }
         var skyTex = new THREE.CanvasTexture(skyCv);
+        skyTex.minFilter = THREE.LinearFilter;
         scene.background = skyTex;
 
         var camera = new THREE.PerspectiveCamera(46, w / h, 0.5, 600);
@@ -1264,22 +1336,25 @@ define([], function() {
         scene.add(new THREE.AmbientLight(0x9a9088, 0.38));
 
         var ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(360, 360),
-            new THREE.MeshStandardMaterial({color: 0x9d907c, roughness: 0.94, metalness: 0.04})
+            new THREE.PlaneGeometry(380, 380),
+            new THREE.MeshStandardMaterial({color: 0x928472, roughness: 0.94, metalness: 0.03})
         );
         ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -0.05;
+        ground.position.y = -0.06;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        var rockWall = new THREE.MeshStandardMaterial({
-            color: 0x7a6b5c,
-            roughness: 0.92,
-            metalness: 0.06,
-            side: THREE.DoubleSide
-        });
         var pitSolidMeshes = [];
         pitSolidMeshes.push(ground);
+
+        var hillMat = new THREE.MeshBasicMaterial({color: 0x5c6878, transparent: true, opacity: 0.72, depthWrite: false});
+        var hi;
+        for (hi = 0; hi < 4; hi++) {
+            var hill = new THREE.Mesh(new THREE.PlaneGeometry(280, 48), hillMat);
+            hill.position.set(-80 + hi * 55, 28 + hi * 3, -155 - hi * 8);
+            hill.rotation.y = -0.15 + hi * 0.08;
+            scene.add(hill);
+        }
 
         var linesGroup = new THREE.Group();
         linesGroup.name = 'ml-contours-cycle';
@@ -1304,7 +1379,14 @@ define([], function() {
             if (r1 < 3) {
                 break;
             }
-            var tier = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, 2.7, 44, 1, true), rockWall);
+            var rockCol = new THREE.Color().setHSL(0.075 + lv * 0.012, 0.14 + lv * 0.02, 0.28 + lv * 0.03);
+            var tierMat = new THREE.MeshStandardMaterial({
+                color: rockCol,
+                roughness: 0.9 + lv * 0.01,
+                metalness: 0.05,
+                side: THREE.DoubleSide
+            });
+            var tier = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, 2.75, 48, 1, true), tierMat);
             tier.position.y = lv * 2.55;
             tier.castShadow = true;
             tier.receiveShadow = true;
@@ -1312,42 +1394,47 @@ define([], function() {
             pitSolidMeshes.push(tier);
         }
 
-        var rampMat = new THREE.MeshStandardMaterial({color: 0x4a4238, roughness: 0.93, metalness: 0.05});
-        var ri;
-        for (ri = 0; ri < 28; ri++) {
-            var uR = ri / 28;
-            var pR = spiralPos(uR);
-            var segR = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.55, 7), rampMat);
-            segR.position.copy(pR);
-            var tn = spiralTan(uR);
-            segR.lookAt(pR.clone().add(tn));
-            segR.rotation.x = -0.12;
-            segR.castShadow = true;
-            segR.receiveShadow = true;
-            scene.add(segR);
-            pitSolidMeshes.push(segR);
-        }
+        var roadSurfMat = new THREE.MeshStandardMaterial({color: 0x4f4a42, roughness: 0.86, metalness: 0.1});
+        var roadTube = new THREE.Mesh(
+            new THREE.TubeGeometry(pathCurve.curve, 260, 3.5, 14, false),
+            roadSurfMat
+        );
+        roadTube.castShadow = true;
+        roadTube.receiveShadow = true;
+        scene.add(roadTube);
+        pitSolidMeshes.push(roadTube);
 
         var equipGroup = new THREE.Group();
         equipGroup.name = 'ml-equipment-cycle';
         scene.add(equipGroup);
 
-        /* Perforación: dos perforadoras simplificadas */
-        var drillMat = new THREE.MeshStandardMaterial({color: 0xf5c542, roughness: 0.55, metalness: 0.22});
-        var mastMat = new THREE.MeshStandardMaterial({color: 0xddd8d0, metalness: 0.4, roughness: 0.45});
+        /* Perforación: perforadoras oruga + mástil */
+        var drillMat = new THREE.MeshStandardMaterial({color: 0xf0c030, roughness: 0.52, metalness: 0.28});
+        var mastMat = new THREE.MeshStandardMaterial({color: 0xd8d4cc, metalness: 0.42, roughness: 0.42});
+        var trackDr = new THREE.MeshStandardMaterial({color: 0x2a2824, roughness: 0.9, metalness: 0.08});
         var dxi;
         for (dxi = 0; dxi < 2; dxi++) {
             var dg = new THREE.Group();
-            var baseD = new THREE.Mesh(new THREE.BoxGeometry(5, 1.2, 6), drillMat);
-            baseD.position.y = 0.6;
+            var trL = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.55, 5.5), trackDr);
+            trL.position.set(-1.9, 0.35, 0);
+            trL.castShadow = true;
+            dg.add(trL);
+            var trR = trL.clone();
+            trR.position.x = 1.9;
+            dg.add(trR);
+            var baseD = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.35, 5.2), drillMat);
+            baseD.position.y = 0.85;
             baseD.castShadow = true;
             dg.add(baseD);
-            var mast = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 11), mastMat);
-            mast.position.set(1.2, 6.5, 0);
+            var deck = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.4, 4), drillMat);
+            deck.position.set(0.3, 1.65, 0);
+            dg.add(deck);
+            var mast = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.65, 12), mastMat);
+            mast.position.set(1.4, 7.2, 0.2);
             mast.castShadow = true;
             dg.add(mast);
-            dg.position.set(-26 + dxi * 7, 8.2, 18);
-            dg.rotation.y = 0.4 + dxi * 0.2;
+            dg.position.set(-26 + dxi * 7.5, 8.2, 18);
+            dg.rotation.y = 0.42 + dxi * 0.22;
             equipGroup.add(dg);
         }
 
@@ -1365,28 +1452,46 @@ define([], function() {
         dustDrill.geometry.setAttribute('position', new THREE.BufferAttribute(darr, 3));
         scene.add(dustDrill);
 
-        /* Carguío: excavadora + cola de camiones */
+        /* Carguío: excavadora hidráulica + cola */
         var exG = new THREE.Group();
-        var exBase = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.3, 5.5), new THREE.MeshStandardMaterial({color: 0xe8b84a, roughness: 0.82}));
-        exBase.position.y = 0.65;
+        var exYellow = new THREE.MeshStandardMaterial({color: 0xecc040, roughness: 0.78, metalness: 0.18});
+        var exDark = new THREE.MeshStandardMaterial({color: 0x33302c, roughness: 0.88, metalness: 0.12});
+        var exTrL = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.65, 6.2), exDark);
+        exTrL.position.set(-2.1, 0.45, 0);
+        exTrL.castShadow = true;
+        exG.add(exTrL);
+        var exTrR = exTrL.clone();
+        exTrR.position.x = 2.1;
+        exG.add(exTrR);
+        var exBase = new THREE.Mesh(new THREE.BoxGeometry(4.8, 1.5, 5.8), exYellow);
+        exBase.position.y = 0.95;
         exBase.castShadow = true;
         exG.add(exBase);
-        var exBoom = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 13), mastMat);
-        exBoom.position.set(1.4, 4.8, 4.5);
-        exBoom.rotation.x = -0.42;
+        var exCab = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.6, 3.2), exYellow);
+        exCab.position.set(0, 2.8, 2.4);
+        exCab.castShadow = true;
+        exG.add(exCab);
+        var exBoom = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 12), mastMat);
+        exBoom.position.set(1.5, 5.2, 4.2);
+        exBoom.rotation.x = -0.48;
         exBoom.castShadow = true;
         exG.add(exBoom);
-        var exBk = new THREE.Mesh(new THREE.BoxGeometry(2, 1.1, 2.4), new THREE.MeshStandardMaterial({color: 0x444444, metalness: 0.45, roughness: 0.5}));
-        exBk.position.set(2.2, 3.2, 12.5);
-        exBk.rotation.x = 0.2;
+        var exStick = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 5), mastMat);
+        exStick.position.set(2.2, 3.5, 10.5);
+        exStick.rotation.x = 0.35;
+        exG.add(exStick);
+        var exBk = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 2.6), new THREE.MeshStandardMaterial({color: 0x3a3a3a, metalness: 0.48, roughness: 0.48}));
+        exBk.position.set(2.5, 2.8, 13.2);
+        exBk.rotation.x = 0.15;
         exBk.castShadow = true;
         exG.add(exBk);
         exG.position.set(24, 2.4, 22);
         exG.rotation.y = -0.9;
         equipGroup.add(exG);
 
-        var waitTruck = makeHaulTruck(0xff7722);
-        waitTruck.position.set(18, 2.2, 28);
+        var waitPack = makeMiningHaulTruck(THREE, 0xff7722);
+        var waitTruck = waitPack.root;
+        waitTruck.position.set(18, 2.35, 28);
         waitTruck.rotation.y = 2.1;
         equipGroup.add(waitTruck);
 
@@ -1400,34 +1505,45 @@ define([], function() {
         scene.add(dumpPile);
         pitSolidMeshes.push(dumpPile);
 
-        var dumpTruck = makeHaulTruck(0xff9933);
-        dumpTruck.position.set(-26, 2.2, -24);
+        var dumpPack = makeMiningHaulTruck(THREE, 0xff9933);
+        var dumpTruck = dumpPack.root;
+        dumpTruck.position.set(-26, 2.35, -24);
         dumpTruck.rotation.y = 0.8;
-        var dumpBed = dumpTruck.children[1];
+        var dumpBedGroup = dumpPack.bedGroup;
         equipGroup.add(dumpTruck);
 
-        /* Etiquetas de etapa */
+        var poleMat = new THREE.MeshStandardMaterial({color: 0x4a4540, roughness: 0.85, metalness: 0.15});
+        var polesGroup = new THREE.Group();
+        polesGroup.name = 'ml-cycle-poles';
+        scene.add(polesGroup);
+        function addSignWithPole(sprite, px, py, pz) {
+            var poleH = Math.max(4, py - 0.4);
+            var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, poleH, 10), poleMat);
+            pole.position.set(px, poleH * 0.5 + 0.2, pz);
+            pole.castShadow = true;
+            polesGroup.add(pole);
+            sprite.position.set(px, py, pz);
+            polesGroup.add(sprite);
+        }
+
+        /* Etiquetas de etapa (postes + carteles) */
         var s1 = makeZoneSprite('PERFORACIÓN', '#d4a017', '#1a1408');
-        s1.position.set(-24, 18, 22);
-        scene.add(s1);
+        addSignWithPole(s1, -24, 17.5, 22);
         var s2 = makeZoneSprite('CARGUÍO', '#e07020', '#ffffff');
-        s2.position.set(28, 14, 26);
-        scene.add(s2);
+        addSignWithPole(s2, 28, 14, 26);
         var s3 = makeZoneSprite('TRANSPORTE', '#2a6ebd', '#ffffff');
-        s3.position.set(8, 22, -8);
-        scene.add(s3);
+        addSignWithPole(s3, 8, 20, -8);
         var s4 = makeZoneSprite('BOTADERO', '#3d8c47', '#ffffff');
-        s4.position.set(-24, 12, -32);
-        scene.add(s4);
+        addSignWithPole(s4, -24, 12, -32);
 
         /* Camiones en rampa */
         var roadTrucks = [];
-        var t0 = makeHaulTruck(0xff6600);
-        var t1 = makeHaulTruck(0xffaa33);
-        var t2 = makeHaulTruck(0xff6600);
-        roadTrucks.push({g: t0, u: 0.05});
-        roadTrucks.push({g: t1, u: 0.38});
-        roadTrucks.push({g: t2, u: 0.72});
+        var pk0 = makeMiningHaulTruck(THREE, 0xff6600);
+        var pk1 = makeMiningHaulTruck(THREE, 0xffaa33);
+        var pk2 = makeMiningHaulTruck(THREE, 0xff5500);
+        roadTrucks.push({g: pk0.root, u: 0.05});
+        roadTrucks.push({g: pk1.root, u: 0.38});
+        roadTrucks.push({g: pk2.root, u: 0.72});
         roadTrucks.forEach(function(rt) {
             equipGroup.add(rt.g);
         });
@@ -1522,10 +1638,26 @@ define([], function() {
         readout.setAttribute('aria-live', 'polite');
         row2.appendChild(readout);
 
+        var row3 = document.createElement('div');
+        row3.className = 'ml-3d-toolbar__row ml-3d-toolbar__row--cycle';
+        if (pt.pitCycleStagePerf) {
+            var labCy = document.createElement('span');
+            labCy.className = 'ml-3d-toolbar__cycle-label';
+            labCy.textContent = (pt.pitCycleTourLabel || '') + ' ';
+            row3.appendChild(labCy);
+            row3.appendChild(addToolButton(pt.pitCycleStagePerf, 'cycle-perf', 'ml-3d-toolbtn--cycle'));
+            row3.appendChild(addToolButton(pt.pitCycleStageLoad, 'cycle-load', 'ml-3d-toolbtn--cycle'));
+            row3.appendChild(addToolButton(pt.pitCycleStageHaul, 'cycle-haul', 'ml-3d-toolbtn--cycle'));
+            row3.appendChild(addToolButton(pt.pitCycleStageDump, 'cycle-dump', 'ml-3d-toolbtn--cycle'));
+        }
+
         var hintEl = document.createElement('p');
         hintEl.className = 'ml-3d-toolbar__hint';
         toolbar.appendChild(row1);
         toolbar.appendChild(row2);
+        if (pt.pitCycleStagePerf) {
+            toolbar.appendChild(row3);
+        }
         toolbar.appendChild(hintEl);
         host.appendChild(toolbar);
 
@@ -1559,6 +1691,14 @@ define([], function() {
                 measurePoints = [];
                 clearMeasureVisual();
                 readout.textContent = '';
+            } else if (act === 'cycle-perf') {
+                startPreset({theta: 2.08, phi: 0.44, radius: 54});
+            } else if (act === 'cycle-load') {
+                startPreset({theta: 0.52, phi: 0.4, radius: 52});
+            } else if (act === 'cycle-haul') {
+                startPreset({theta: 1.02, phi: 0.33, radius: 64});
+            } else if (act === 'cycle-dump') {
+                startPreset({theta: -2.12, phi: 0.38, radius: 52});
             }
         }
 
@@ -1572,7 +1712,7 @@ define([], function() {
                 linesGroup.visible = inp.checked;
             } else if (act === 'toggle-equip') {
                 equipGroup.visible = inp.checked;
-                s1.visible = s2.visible = s3.visible = s4.visible = inp.checked;
+                polesGroup.visible = inp.checked;
             }
         }
 
@@ -1660,16 +1800,18 @@ define([], function() {
                 if (rt.u > 1) {
                     rt.u -= 1;
                 }
-                var p = spiralPos(rt.u);
-                rt.g.position.copy(p);
-                var tn = spiralTan(rt.u);
-                rt.g.lookAt(p.clone().add(tn));
+                var p = pathCurve.pointAt(rt.u);
+                var tn = pathCurve.tangentAt(rt.u);
+                rt.g.position.set(p.x, p.y + 0.42, p.z);
+                var look = p.clone().add(tn);
+                rt.g.lookAt(look.x, look.y + 0.42, look.z);
             });
 
             exG.rotation.y = Math.sin(camAng * 1.6) * 0.35;
-            exBoom.rotation.x = -0.42 + Math.sin(camAng * 2.2) * 0.1;
-            exBk.rotation.x = 0.2 + Math.sin(camAng * 2.2 + 0.4) * 0.12;
-            dumpBed.rotation.x = 0.35 + Math.sin(camAng * 1.4) * 0.08;
+            exBoom.rotation.x = -0.48 + Math.sin(camAng * 2.2) * 0.1;
+            exStick.rotation.x = 0.35 + Math.sin(camAng * 2.0 + 0.3) * 0.08;
+            exBk.rotation.x = 0.15 + Math.sin(camAng * 2.2 + 0.4) * 0.12;
+            dumpBedGroup.rotation.x = 0.42 + Math.sin(camAng * 1.4) * 0.12;
 
             var dposArr = dustDrill.geometry.attributes.position.array;
             for (var dj = 0; dj < nd; dj++) {

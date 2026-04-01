@@ -156,6 +156,12 @@ define([], function() {
                 body.appendChild(ul);
                 body.appendChild(btn);
             } else if (step.type === 'order') {
+                if (step.introLangKey && t[step.introLangKey]) {
+                    var introP = document.createElement('p');
+                    introP.className = 'ml-guided__text';
+                    introP.innerHTML = t[step.introLangKey];
+                    body.appendChild(introP);
+                }
                 var seq = step.correctSeq || [0, 1, 2, 3];
                 var labels = step.labels || [];
                 var shuf = shuffleOrder(labels.length, hashActivityKey(helpers.activityKey || 'x'));
@@ -584,6 +590,7 @@ define([], function() {
                 {
                     type: 'order',
                     title: 'Paso 1 · Ciclo de mina a cielo abierto',
+                    introLangKey: 'practiceCycleOrderIntro',
                     labels: ['Perforación', 'Carguío (explosivos)', 'Carga y transporte', 'Acopio / botadero'],
                     correctSeq: [0, 1, 2, 3]
                 },

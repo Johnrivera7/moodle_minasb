@@ -266,6 +266,13 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             measureHint: t.pitMeasureHint,
             distLabel: t.pitDistLabel
         };
+        if (activity && activity.pit_scene === 'cycle') {
+            theme.pitTools.pitCycleTourLabel = t.pitCycleTourLabel;
+            theme.pitTools.pitCycleStagePerf = t.pitCycleStagePerf;
+            theme.pitTools.pitCycleStageLoad = t.pitCycleStageLoad;
+            theme.pitTools.pitCycleStageHaul = t.pitCycleStageHaul;
+            theme.pitTools.pitCycleStageDump = t.pitCycleStageDump;
+        }
         var pitScene = (activity && activity.pit_scene === 'cycle') ? 'cycle' : 'design';
         if (pitScene === 'cycle') {
             scenes3d.mountPitCycle(shell.viewport, activity, theme, THREE);

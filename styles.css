@@ -1190,6 +1190,23 @@ body:not(.path-mod-minaslab) .minaslab-app {
     color: #8b98ab;
 }
 
+.ml-3d-toolbar__cycle-label {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #c8d4e4;
+    margin-right: 0.15rem;
+}
+
+.ml-3d-toolbtn--cycle {
+    border-color: rgba(244, 162, 58, 0.35);
+    background: rgba(244, 162, 58, 0.1);
+}
+
+.ml-3d-toolbtn--cycle:hover {
+    background: rgba(244, 162, 58, 0.2);
+    border-color: rgba(244, 162, 58, 0.5);
+}
+
 .ml-3d-legend {
     margin-top: 0.5rem;
     padding: 0.5rem 0.65rem;
