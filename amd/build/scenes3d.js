@@ -1159,22 +1159,23 @@ define([], function() {
 
         function makeZoneSprite(txt, bg, fg) {
             var cv = document.createElement('canvas');
-            cv.width = 640;
-            cv.height = 140;
+            cv.width = 512;
+            cv.height = 112;
             var cx = cv.getContext('2d');
             cx.fillStyle = bg;
-            cx.fillRect(0, 0, 640, 140);
+            cx.fillRect(0, 0, 512, 112);
             cx.strokeStyle = 'rgba(255,255,255,0.35)';
-            cx.lineWidth = 4;
-            cx.strokeRect(2, 2, 636, 136);
+            cx.lineWidth = 3;
+            cx.strokeRect(2, 2, 508, 108);
             cx.fillStyle = fg || '#ffffff';
-            cx.font = 'bold 38px system-ui,Segoe UI,sans-serif';
+            cx.font = 'bold 30px system-ui,Segoe UI,sans-serif';
             cx.textAlign = 'center';
             cx.textBaseline = 'middle';
-            cx.fillText(txt, 320, 70);
+            cx.fillText(txt, 256, 56);
             var tex = new THREE.CanvasTexture(cv);
             var spr = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true, depthTest: false}));
-            spr.scale.set(34, 7.5, 1);
+            /* Escala en mundo: antes ~34×7.5 tapaba el tajo; ~12×2.6 queda como rótulo de zona. */
+            spr.scale.set(12, 2.6, 1);
             return spr;
         }
 
@@ -1212,6 +1213,38 @@ define([], function() {
                     return curve.getTangentAt(u);
                 }
             };
+        }
+
+        /**
+         * Rampa como franja plana (anchura ~2×halfWidth), no TubeGeometry — el tubo se leía como túnel.
+         */
+        function buildPitRoadRibbonGeometry(THREE, curve, tubularSegments, halfWidth) {
+            var verts = [];
+            var indices = [];
+            var up = new THREE.Vector3(0, 1, 0);
+            var i;
+            for (i = 0; i <= tubularSegments; i++) {
+                var u = i / tubularSegments;
+                var p = curve.getPointAt(u);
+                var t = curve.getTangentAt(u).normalize();
+                var side = new THREE.Vector3().crossVectors(up, t);
+                if (side.lengthSq() < 1e-12) {
+                    side.set(-t.z, 0, t.x);
+                }
+                side.normalize().multiplyScalar(halfWidth);
+                var pL = new THREE.Vector3().subVectors(p, side);
+                var pR = new THREE.Vector3().addVectors(p, side);
+                verts.push(pL.x, pL.y, pL.z, pR.x, pR.y, pR.z);
+            }
+            for (i = 0; i < tubularSegments; i++) {
+                var i0 = i * 2;
+                indices.push(i0, i0 + 2, i0 + 1, i0 + 1, i0 + 2, i0 + 3);
+            }
+            var geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+            return geo;
         }
 
         function makeMiningHaulTruck(THREE, primaryHex) {
@@ -1386,13 +1419,14 @@ define([], function() {
         pitProfile.push(new THREE.Vector2(2.6, -PIT_DEPTH - 0.25));
 
         var pitWallMat = new THREE.MeshStandardMaterial({
-            color: 0x7a6e5c,
-            roughness: 0.91,
-            metalness: 0.06,
+            color: 0x756858,
+            roughness: 0.94,
+            metalness: 0.05,
             side: THREE.DoubleSide,
-            flatShading: true
+            flatShading: false
         });
-        var pitWallGeo = new THREE.LatheGeometry(pitProfile, 72);
+        /* Menos segmentos angulares = menos “tubos apilados”; sombreado suave = talud/roca. */
+        var pitWallGeo = new THREE.LatheGeometry(pitProfile, 40);
         var pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
         pitWall.castShadow = true;
         pitWall.receiveShadow = true;
@@ -1410,16 +1444,19 @@ define([], function() {
         var linesGroup = new THREE.Group();
         linesGroup.name = 'ml-contours-cycle';
         scene.add(linesGroup);
-        var contourMat = new THREE.LineBasicMaterial({color: 0x2a5088, transparent: true, opacity: 0.82});
+        var contourMat = new THREE.LineBasicMaterial({color: 0x3d5a78, transparent: true, opacity: 0.38});
         var benchI;
         for (benchI = 0; benchI <= PIT_N_BENCH; benchI++) {
+            if (benchI % 2 === 1) {
+                continue;
+            }
             var rr = PIT_RIM_R - benchI * PIT_BENCH_IN - 0.15;
             if (rr < PIT_BOTTOM_R + 1) {
                 break;
             }
             var yy = -benchI * PIT_BENCH_H + 0.08;
             var pts = [];
-            var seg = 72;
+            var seg = 48;
             var sgi;
             for (sgi = 0; sgi <= seg; sgi++) {
                 var a = (sgi / seg) * Math.PI * 2;
@@ -1427,26 +1464,25 @@ define([], function() {
             }
             linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), contourMat));
         }
+        var contourMatTer = new THREE.LineBasicMaterial({color: 0x4a6a88, transparent: true, opacity: 0.22});
         var crOut;
-        for (crOut = PIT_RIM_R + 4; crOut <= 95; crOut += 14) {
+        for (crOut = PIT_RIM_R + 18; crOut <= 78; crOut += 28) {
             var pts2 = [];
             var sg2;
-            for (sg2 = 0; sg2 <= 72; sg2++) {
-                var a2 = (sg2 / 72) * Math.PI * 2;
+            for (sg2 = 0; sg2 <= 48; sg2++) {
+                var a2 = (sg2 / 48) * Math.PI * 2;
                 pts2.push(new THREE.Vector3(Math.cos(a2) * crOut, 0.05, Math.sin(a2) * crOut));
             }
-            linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts2), contourMat));
+            linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts2), contourMatTer));
         }
 
-        var roadSurfMat = new THREE.MeshStandardMaterial({color: 0x4f463c, roughness: 0.88, metalness: 0.08});
-        var roadTube = new THREE.Mesh(
-            new THREE.TubeGeometry(pathCurve.curve, 280, 2.35, 12, false),
-            roadSurfMat
-        );
-        roadTube.castShadow = true;
-        roadTube.receiveShadow = true;
-        scene.add(roadTube);
-        pitSolidMeshes.push(roadTube);
+        var roadSurfMat = new THREE.MeshStandardMaterial({color: 0x4a4036, roughness: 0.9, metalness: 0.06});
+        var roadRibbonGeo = buildPitRoadRibbonGeometry(THREE, pathCurve.curve, 300, 2.85);
+        var roadRibbon = new THREE.Mesh(roadRibbonGeo, roadSurfMat);
+        roadRibbon.castShadow = true;
+        roadRibbon.receiveShadow = true;
+        scene.add(roadRibbon);
+        pitSolidMeshes.push(roadRibbon);
 
         var equipGroup = new THREE.Group();
         equipGroup.name = 'ml-equipment-cycle';
