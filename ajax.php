@@ -13,7 +13,8 @@ global $CFG, $DB, $USER;
 use mod_minaslab\local\progress_manager;
 
 $cmid = required_param('cmid', PARAM_INT);
-$action = required_param('action', PARAM_ALPHA);
+// get_state / save_state llevan guión bajo; PARAM_ALPHA no lo permite.
+$action = required_param('action', PARAM_ALPHANUMEXT);
 
 require_login();
 $cm = get_coursemodule_from_id('minaslab', $cmid, 0, false, MUST_EXIST);

@@ -12,11 +12,26 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
         var s = document.createElement('script');
         s.src = wwwroot + '/mod/minaslab/js/three.min.js';
         s.async = false;
+        // Three.js r150+ (UMD) registra define() anónimo y choca con RequireJS de Moodle.
+        var prevDefine = typeof window.define === 'function' ? window.define : undefined;
+        if (prevDefine) {
+            try {
+                delete window.define;
+            } catch (e) {
+                window.define = undefined;
+            }
+        }
         s.onload = function() {
+            if (prevDefine) {
+                window.define = prevDefine;
+            }
             THREE = window.THREE;
             done();
         };
         s.onerror = function() {
+            if (prevDefine) {
+                window.define = prevDefine;
+            }
             done();
         };
         document.head.appendChild(s);
@@ -668,7 +683,19 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
 
     function init(cfg) {
         var root = document.getElementById('minaslab-stage');
-        if (!root || !cfg || !cfg.activity) {
+        if (!root || !cfg) {
+            return;
+        }
+        var bootEl = document.getElementById('minaslab-bootstrap-json');
+        if (bootEl && bootEl.textContent) {
+            try {
+                var extra = JSON.parse(bootEl.textContent);
+                cfg = Object.assign({}, cfg, extra);
+            } catch (e) {
+                // Si falla el JSON, seguir solo con cfg mínimo.
+            }
+        }
+        if (!cfg.activity) {
             return;
         }
         root.innerHTML = '';

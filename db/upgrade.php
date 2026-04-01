@@ -62,5 +62,10 @@ function xmldb_minaslab_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026033106, 'minaslab');
     }
 
+    if ($oldversion < 2026033107) {
+        // AMD payload, Three/RequireJS, ajax action PARAM.
+        upgrade_mod_savepoint(true, 2026033107, 'minaslab');
+    }
+
     return true;
 }

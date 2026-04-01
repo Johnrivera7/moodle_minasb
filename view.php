@@ -42,12 +42,16 @@ $str = function(string $key) {
     return get_string($key, 'mod_minaslab');
 };
 
-$config = [
+// Payload AMD &lt; 1 KB: el resto va en JSON embebido (mustache) para evitar aviso del core.
+$amdinit = [
     'wwwroot' => $CFG->wwwroot,
     'cmid' => $cm->id,
     'sesskey' => sesskey(),
     'grademax' => (float) $minaslab->grade,
     'activityKey' => $minaslab->activity_key,
+];
+
+$bootstrap = [
     'activity' => $entry,
     'author' => $str('author_name'),
     'authorRole' => $str('author_role'),
@@ -75,7 +79,7 @@ $config = [
     ],
 ];
 
-$PAGE->requires->js_call_amd('mod_minaslab/lab', 'init', [$config]);
+$PAGE->requires->js_call_amd('mod_minaslab/lab', 'init', [$amdinit]);
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading(format_string($minaslab->name));
@@ -101,6 +105,7 @@ $templatecontext = [
     'authorfooter' => $str('author_footer'),
     'profilelabel' => $str('profile_label'),
     'profilebadges' => $profilebadges,
+    'bootstrapjson' => json_encode($bootstrap, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE),
 ];
 
 echo $OUTPUT->render_from_template('mod_minaslab/view', $templatecontext);
