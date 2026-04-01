@@ -35,15 +35,18 @@ define([], function() {
         var activePid = -1;
         var lastX = 0;
         var lastY = 0;
+        var tx = target.x;
+        var ty = target.y;
+        var tz = target.z;
 
         function applyOrbit() {
             var cp = Math.cos(phi);
             camera.position.set(
-                target.x + radius * cp * Math.sin(theta),
-                target.y + radius * Math.sin(phi),
-                target.z + radius * cp * Math.cos(theta)
+                tx + radius * cp * Math.sin(theta),
+                ty + radius * Math.sin(phi),
+                tz + radius * cp * Math.cos(theta)
             );
-            camera.lookAt(target);
+            camera.lookAt(tx, ty, tz);
         }
         applyOrbit();
 
@@ -145,7 +148,7 @@ define([], function() {
                 }
             },
             getAngles: function() {
-                return {theta: theta, phi: phi, radius: radius};
+                return {theta: theta, phi: phi, radius: radius, tx: tx, ty: ty, tz: tz};
             },
             setAngles: function(t, p, r) {
                 if (t != null) {
@@ -160,6 +163,16 @@ define([], function() {
                 phi = Math.max(minPhi, Math.min(maxPhi, phi));
                 radius = Math.max(minR, Math.min(maxR, radius));
                 applyOrbit();
+            },
+            /** Punto de vista (ciclo rajo: centrar en perforación, carguío, etc.). */
+            setTarget: function(x, y, z) {
+                tx = x;
+                ty = y;
+                tz = z;
+                applyOrbit();
+            },
+            getTarget: function() {
+                return {x: tx, y: ty, z: tz};
             }
         };
     }
@@ -407,21 +420,58 @@ define([], function() {
         camera.add(headTarget);
         headlamp.target = headTarget;
 
+        /* Galería: sección elíptica (no tubo circular) + muro rocoso interior. */
+        var tunnelWallMat = new THREE.MeshStandardMaterial({
+            color: 0x4d5562,
+            roughness: 0.92,
+            metalness: 0.06,
+            emissive: 0x151a22,
+            emissiveIntensity: 0.35,
+            side: THREE.BackSide,
+            flatShading: false
+        });
         var tunnel = new THREE.Mesh(
-            new THREE.CylinderGeometry(5.2, 5.2, 90, 48, 1, true),
-            new THREE.MeshStandardMaterial({
-                color: 0x4a5668,
-                roughness: 0.86,
-                metalness: 0.1,
-                emissive: 0x1c2435,
-                emissiveIntensity: 0.48,
-                side: THREE.BackSide,
-                flatShading: false
-            })
+            new THREE.CylinderGeometry(5.6, 5.35, 90, 36, 1, true),
+            tunnelWallMat
         );
+        tunnel.scale.set(1.32, 1, 0.7);
         tunnel.rotation.z = Math.PI / 2;
         tunnel.receiveShadow = true;
         scene.add(tunnel);
+        var tunnelLining = new THREE.Mesh(
+            new THREE.CylinderGeometry(4.95, 4.75, 87, 32, 1, true),
+            new THREE.MeshStandardMaterial({
+                color: 0x2e323c,
+                roughness: 0.96,
+                metalness: 0.04,
+                side: THREE.BackSide
+            })
+        );
+        tunnelLining.scale.set(1.32, 1, 0.7);
+        tunnelLining.rotation.z = Math.PI / 2;
+        scene.add(tunnelLining);
+        var ribMat = new THREE.MeshStandardMaterial({color: 0x3a3545, roughness: 0.88, metalness: 0.2});
+        var ribZ;
+        for (ribZ = -36; ribZ < 36; ribZ += 7) {
+            var rib = new THREE.Mesh(new THREE.TorusGeometry(4.25, 0.12, 8, 24), ribMat);
+            rib.scale.set(1.32, 0.7, 1);
+            rib.position.z = ribZ;
+            scene.add(rib);
+        }
+        var portalF = new THREE.Mesh(
+            new THREE.BoxGeometry(9.2, 7.2, 0.45),
+            new THREE.MeshStandardMaterial({color: 0x353842, roughness: 0.9, metalness: 0.15})
+        );
+        portalF.position.set(0, 0.5, -41);
+        portalF.rotation.x = 0.06;
+        scene.add(portalF);
+        var signDs = new THREE.Mesh(
+            new THREE.BoxGeometry(2.8, 1.1, 0.06),
+            new THREE.MeshStandardMaterial({color: 0xe8c040, roughness: 0.55, emissive: 0x2a2010, emissiveIntensity: 0.15})
+        );
+        signDs.position.set(2.2, 1.2, -40.2);
+        signDs.rotation.y = -0.35;
+        scene.add(signDs);
 
         var floor = new THREE.Mesh(
             new THREE.PlaneGeometry(11, 96),
@@ -963,9 +1013,24 @@ define([], function() {
         host.appendChild(toolbar);
 
         function startPreset(angles) {
+            var cur = orbitPit.getAngles();
             camTween = {
-                a: orbitPit.getAngles(),
-                b: angles,
+                a: {
+                    theta: cur.theta,
+                    phi: cur.phi,
+                    radius: cur.radius,
+                    tx: cur.tx,
+                    ty: cur.ty,
+                    tz: cur.tz
+                },
+                b: {
+                    theta: angles.theta,
+                    phi: angles.phi,
+                    radius: angles.radius,
+                    tx: cur.tx,
+                    ty: cur.ty,
+                    tz: cur.tz
+                },
                 t0: performance.now(),
                 dur: 560
             };
@@ -1073,6 +1138,11 @@ define([], function() {
                 u = u * u * (3 - 2 * u);
                 var A = camTween.a;
                 var B = camTween.b;
+                orbitPit.setTarget(
+                    A.tx + (B.tx - A.tx) * u,
+                    A.ty + (B.ty - A.ty) * u,
+                    A.tz + (B.tz - A.tz) * u
+                );
                 orbitPit.setAngles(
                     A.theta + (B.theta - A.theta) * u,
                     A.phi + (B.phi - A.phi) * u,
@@ -1268,9 +1338,18 @@ define([], function() {
                 transparent: true,
                 opacity: 0.78
             });
-            var wind = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.5, 0.1), glassMat);
-            wind.position.set(0, 2.45, 5.35);
+            var wind = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.75, 0.12), glassMat);
+            wind.position.set(0, 2.5, 5.38);
             g.add(wind);
+            var wSide = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.15, 2.65), glassMat);
+            wSide.position.set(-1.62, 2.35, 3.95);
+            g.add(wSide);
+            var wSide2 = wSide.clone();
+            wSide2.position.x = 1.62;
+            g.add(wSide2);
+            var wTop = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.35, 0.1), glassMat);
+            wTop.position.set(0, 3.15, 5.15);
+            g.add(wTop);
             var hood = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.0, 3.2), body);
             hood.position.set(0, 1.65, 1.35);
             hood.castShadow = true;
@@ -1381,15 +1460,19 @@ define([], function() {
         fillLt.position.set(40, 28, -55);
         scene.add(fillLt);
 
+        /* Contenedor escalado elipse: tajo menos circular, más alineado a rajo real. */
+        var pitWorld = new THREE.Group();
+        pitWorld.name = 'ml-pit-cycle-world';
+        pitWorld.scale.set(1.1, 1, 0.85);
+
         var groundMat = new THREE.MeshStandardMaterial({color: 0x8f846f, roughness: 0.93, metalness: 0.03});
         var groundRing = new THREE.Mesh(new THREE.RingGeometry(PIT_RIM_R + 0.6, 220, 80, 1), groundMat);
         groundRing.rotation.x = -Math.PI / 2;
         groundRing.position.y = 0.02;
         groundRing.receiveShadow = true;
-        scene.add(groundRing);
+        pitWorld.add(groundRing);
 
         var pitSolidMeshes = [];
-        pitSolidMeshes.push(groundRing);
 
         var hillMat = new THREE.MeshBasicMaterial({color: 0x5c6878, transparent: true, opacity: 0.72, depthWrite: false});
         var hi;
@@ -1430,20 +1513,18 @@ define([], function() {
         var pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
         pitWall.castShadow = true;
         pitWall.receiveShadow = true;
-        scene.add(pitWall);
-        pitSolidMeshes.push(pitWall);
+        pitWorld.add(pitWall);
 
         var pitFloorMat = new THREE.MeshStandardMaterial({color: 0x4a4338, roughness: 0.96, metalness: 0.04});
         var pitFloor = new THREE.Mesh(new THREE.CircleGeometry(PIT_BOTTOM_R + 0.3, 36), pitFloorMat);
         pitFloor.rotation.x = -Math.PI / 2;
         pitFloor.position.y = -PIT_DEPTH - 0.28;
         pitFloor.receiveShadow = true;
-        scene.add(pitFloor);
-        pitSolidMeshes.push(pitFloor);
+        pitWorld.add(pitFloor);
 
         var linesGroup = new THREE.Group();
         linesGroup.name = 'ml-contours-cycle';
-        scene.add(linesGroup);
+        pitWorld.add(linesGroup);
         var contourMat = new THREE.LineBasicMaterial({color: 0x3d5a78, transparent: true, opacity: 0.38});
         var benchI;
         for (benchI = 0; benchI <= PIT_N_BENCH; benchI++) {
@@ -1460,7 +1541,8 @@ define([], function() {
             var sgi;
             for (sgi = 0; sgi <= seg; sgi++) {
                 var a = (sgi / seg) * Math.PI * 2;
-                pts.push(new THREE.Vector3(Math.cos(a) * rr, yy, Math.sin(a) * rr));
+                var wob = 1 + 0.055 * Math.sin(a * 6 + benchI * 1.05);
+                pts.push(new THREE.Vector3(Math.cos(a) * rr * wob, yy, Math.sin(a) * rr * wob));
             }
             linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), contourMat));
         }
@@ -1471,7 +1553,8 @@ define([], function() {
             var sg2;
             for (sg2 = 0; sg2 <= 48; sg2++) {
                 var a2 = (sg2 / 48) * Math.PI * 2;
-                pts2.push(new THREE.Vector3(Math.cos(a2) * crOut, 0.05, Math.sin(a2) * crOut));
+                var w2 = 1 + 0.04 * Math.sin(a2 * 4 + crOut * 0.08);
+                pts2.push(new THREE.Vector3(Math.cos(a2) * crOut * w2, 0.05, Math.sin(a2) * crOut * w2));
             }
             linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts2), contourMatTer));
         }
@@ -1481,12 +1564,11 @@ define([], function() {
         var roadRibbon = new THREE.Mesh(roadRibbonGeo, roadSurfMat);
         roadRibbon.castShadow = true;
         roadRibbon.receiveShadow = true;
-        scene.add(roadRibbon);
-        pitSolidMeshes.push(roadRibbon);
+        pitWorld.add(roadRibbon);
 
         var equipGroup = new THREE.Group();
         equipGroup.name = 'ml-equipment-cycle';
-        scene.add(equipGroup);
+        pitWorld.add(equipGroup);
 
         /* Perforación: perforadoras oruga + mástil */
         var drillMat = new THREE.MeshStandardMaterial({color: 0xf0c030, roughness: 0.52, metalness: 0.28});
@@ -1530,7 +1612,7 @@ define([], function() {
             darr[di * 3 + 2] = 12 + Math.random() * 6;
         }
         dustDrill.geometry.setAttribute('position', new THREE.BufferAttribute(darr, 3));
-        scene.add(dustDrill);
+        pitWorld.add(dustDrill);
 
         /* Carguío: excavadora hidráulica + cola */
         var exG = new THREE.Group();
@@ -1551,6 +1633,16 @@ define([], function() {
         exCab.position.set(0, 2.8, 2.4);
         exCab.castShadow = true;
         exG.add(exCab);
+        var exGlass = new THREE.MeshStandardMaterial({
+            color: 0x2a4058,
+            roughness: 0.15,
+            metalness: 0.35,
+            transparent: true,
+            opacity: 0.72
+        });
+        var exWind = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.35, 0.08), exGlass);
+        exWind.position.set(0, 2.95, 3.95);
+        exG.add(exWind);
         var exBoom = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 12), mastMat);
         exBoom.position.set(1.5, 5.2, 4.2);
         exBoom.rotation.x = -0.48;
@@ -1582,8 +1674,7 @@ define([], function() {
         );
         dumpPile.position.set(-24, 2.4, -30);
         dumpPile.castShadow = true;
-        scene.add(dumpPile);
-        pitSolidMeshes.push(dumpPile);
+        pitWorld.add(dumpPile);
 
         var dumpPack = makeMiningHaulTruck(THREE, 0xff9933);
         var dumpTruck = dumpPack.root;
@@ -1595,7 +1686,7 @@ define([], function() {
         var poleMat = new THREE.MeshStandardMaterial({color: 0x4a4540, roughness: 0.85, metalness: 0.15});
         var polesGroup = new THREE.Group();
         polesGroup.name = 'ml-cycle-poles';
-        scene.add(polesGroup);
+        pitWorld.add(polesGroup);
         function addSignWithPole(sprite, px, py, pz) {
             var poleH = Math.max(4, py - 0.4);
             var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, poleH, 10), poleMat);
@@ -1628,6 +1719,9 @@ define([], function() {
             equipGroup.add(rt.g);
         });
 
+        scene.add(pitWorld);
+        pitSolidMeshes.push(pitWorld);
+
         var pitCenter = new THREE.Vector3(0, -6.5, 0);
         var orbitPit = attachTrackpadOrbit(THREE, renderer.domElement, camera, pitCenter, {
             theta: 0.82,
@@ -1639,7 +1733,8 @@ define([], function() {
             maxPhi: 1.36
         });
 
-        pitSolidMeshes.push(equipGroup);
+        var haulFocus = pathCurve.curve.getPointAt(0.52);
+        haulFocus.y += 1.1;
 
         var pt = theme.pitTools || {};
         var measureMode = false;
@@ -1741,12 +1836,28 @@ define([], function() {
         toolbar.appendChild(hintEl);
         host.appendChild(toolbar);
 
-        function startPreset(angles) {
+        function startPreset(opts) {
+            opts = opts || {};
+            var cur = orbitPit.getAngles();
             camTween = {
-                a: orbitPit.getAngles(),
-                b: angles,
+                a: {
+                    theta: cur.theta,
+                    phi: cur.phi,
+                    radius: cur.radius,
+                    tx: cur.tx,
+                    ty: cur.ty,
+                    tz: cur.tz
+                },
+                b: {
+                    theta: opts.theta,
+                    phi: opts.phi,
+                    radius: opts.radius,
+                    tx: opts.tx != null ? opts.tx : cur.tx,
+                    ty: opts.ty != null ? opts.ty : cur.ty,
+                    tz: opts.tz != null ? opts.tz : cur.tz
+                },
                 t0: performance.now(),
-                dur: 560
+                dur: 620
             };
         }
 
@@ -1757,11 +1868,11 @@ define([], function() {
                 return;
             }
             if (act === 'preset-iso') {
-                startPreset({theta: 0.82, phi: 0.48, radius: 64});
+                startPreset({tx: 0, ty: -6.5, tz: 0, theta: 0.82, phi: 0.48, radius: 64});
             } else if (act === 'preset-plan') {
-                startPreset({theta: 0.9, phi: 0.18, radius: 90});
+                startPreset({tx: 0, ty: -6.5, tz: 0, theta: 0.9, phi: 0.18, radius: 90});
             } else if (act === 'preset-section') {
-                startPreset({theta: 0.05, phi: 0.38, radius: 62});
+                startPreset({tx: 0, ty: -6.5, tz: 0, theta: 0.05, phi: 0.38, radius: 62});
             } else if (act === 'measure') {
                 measureMode = !measureMode;
                 orbitPit.setOrbitDragEnabled(!measureMode);
@@ -1772,13 +1883,20 @@ define([], function() {
                 clearMeasureVisual();
                 readout.textContent = '';
             } else if (act === 'cycle-perf') {
-                startPreset({theta: 2.12, phi: 0.42, radius: 56});
+                startPreset({tx: -36, ty: 3, tz: 15, theta: 1.0, phi: 0.46, radius: 42});
             } else if (act === 'cycle-load') {
-                startPreset({theta: 0.48, phi: 0.38, radius: 54});
+                startPreset({tx: 26, ty: 1.5, tz: 18, theta: 4.2, phi: 0.42, radius: 36});
             } else if (act === 'cycle-haul') {
-                startPreset({theta: 1.0, phi: 0.32, radius: 70});
+                startPreset({
+                    tx: haulFocus.x,
+                    ty: haulFocus.y,
+                    tz: haulFocus.z,
+                    theta: 0.88,
+                    phi: 0.34,
+                    radius: 56
+                });
             } else if (act === 'cycle-dump') {
-                startPreset({theta: -2.0, phi: 0.36, radius: 54});
+                startPreset({tx: -25, ty: 2.8, tz: -28, theta: 3.55, phi: 0.4, radius: 40});
             }
         }
 
@@ -1863,6 +1981,11 @@ define([], function() {
                 u = u * u * (3 - 2 * u);
                 var A = camTween.a;
                 var B = camTween.b;
+                orbitPit.setTarget(
+                    A.tx + (B.tx - A.tx) * u,
+                    A.ty + (B.ty - A.ty) * u,
+                    A.tz + (B.tz - A.tz) * u
+                );
                 orbitPit.setAngles(
                     A.theta + (B.theta - A.theta) * u,
                     A.phi + (B.phi - A.phi) * u,

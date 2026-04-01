@@ -216,6 +216,74 @@ define([], function() {
                 hint.textContent = t.practiceOrderHint || '';
                 body.appendChild(wrap);
                 body.appendChild(hint);
+            } else if (step.type === 'order_drag') {
+                if (step.introLangKey && t[step.introLangKey]) {
+                    var introDrag = document.createElement('p');
+                    introDrag.className = 'ml-guided__text';
+                    introDrag.innerHTML = t[step.introLangKey];
+                    body.appendChild(introDrag);
+                }
+                var seqD = step.correctSeq || [0, 1, 2, 3];
+                var labelsD = step.labels || [];
+                var shufD = shuffleOrder(labelsD.length, hashActivityKey(helpers.activityKey || 'x'));
+                var listD = document.createElement('ol');
+                listD.className = 'ml-guided__drag-list';
+                shufD.forEach(function(idx) {
+                    var liD = document.createElement('li');
+                    liD.className = 'ml-guided__drag-item';
+                    liD.setAttribute('draggable', 'true');
+                    liD.setAttribute('data-idx', String(idx));
+                    liD.textContent = labelsD[idx];
+                    listD.appendChild(liD);
+                });
+                var dragSrc = null;
+                listD.querySelectorAll('li').forEach(function(liEl) {
+                    liEl.addEventListener('dragstart', function() {
+                        dragSrc = liEl;
+                        liEl.classList.add('ml-guided__drag-item--drag');
+                    });
+                    liEl.addEventListener('dragend', function() {
+                        liEl.classList.remove('ml-guided__drag-item--drag');
+                        dragSrc = null;
+                    });
+                    liEl.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                    });
+                    liEl.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        if (dragSrc && dragSrc !== liEl) {
+                            var rect = liEl.getBoundingClientRect();
+                            var before = e.clientY < rect.top + rect.height * 0.5;
+                            listD.insertBefore(dragSrc, before ? liEl : liEl.nextSibling);
+                        }
+                    });
+                });
+                var hintDrag = document.createElement('p');
+                hintDrag.className = 'ml-guided__hint';
+                hintDrag.textContent = t.practiceOrderDragHint || t.practiceOrderHint || '';
+                body.appendChild(listD);
+                body.appendChild(hintDrag);
+                var btnDrag = document.createElement('button');
+                btnDrag.type = 'button';
+                btnDrag.className = 'ml-btn';
+                btnDrag.textContent = t.check || 'Verificar';
+                btnDrag.addEventListener('click', function() {
+                    var ord = listD.querySelectorAll('li');
+                    var okD = true;
+                    var kd;
+                    for (kd = 0; kd < ord.length; kd++) {
+                        if (parseInt(ord[kd].getAttribute('data-idx'), 10) !== seqD[kd]) {
+                            okD = false;
+                            break;
+                        }
+                    }
+                    if (okD) {
+                        nextStep();
+                    } else {
+                        bad();
+                    }
+                });
+                body.appendChild(btnDrag);
             } else if (step.type === 'numeric') {
                 var p = document.createElement('p');
                 p.className = 'ml-guided__text';
@@ -606,7 +674,7 @@ define([], function() {
         if (key === 's1_bases_ops_b') {
             return [
                 {
-                    type: 'order',
+                    type: 'order_drag',
                     title: 'Paso 1 · Ciclo de mina a cielo abierto',
                     introLangKey: 'practiceCycleOrderIntro',
                     labels: ['Perforación', 'Carguío (explosivos)', 'Carga y transporte', 'Acopio / botadero'],

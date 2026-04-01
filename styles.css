@@ -1576,6 +1576,47 @@ body:not(.path-mod-minaslab) .minaslab-app {
     padding: 0.5rem 0.85rem;
 }
 
+.ml-guided__drag-list {
+    margin: 0 0 0.75rem;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.ml-guided__drag-item {
+    margin: 0;
+    padding: 0.55rem 0.65rem 0.55rem 1.85rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(0, 0, 0, 0.28);
+    cursor: grab;
+    font-size: 0.88rem;
+    line-height: 1.35;
+    position: relative;
+    user-select: none;
+}
+
+.ml-guided__drag-item::before {
+    content: "☰";
+    position: absolute;
+    left: 0.55rem;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.55;
+    font-size: 0.85rem;
+}
+
+.ml-guided__drag-item:active {
+    cursor: grabbing;
+}
+
+.ml-guided__drag-item--drag {
+    opacity: 0.75;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
 .ml-guided__ord-btn--ok {
     opacity: 0.55;
     pointer-events: none;
