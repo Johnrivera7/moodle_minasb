@@ -1,0 +1,78 @@
+<?php
+// This file is part of Moodle - http://moodle.org/
+
+defined('MOODLE_INTERNAL') || die();
+
+$string['modulename'] = 'MinasLab — Laboratorio virtual minero';
+$string['modulenameplural'] = 'Actividades MinasLab';
+$string['pluginname'] = 'MinasLab';
+$string['pluginadministration'] = 'Administración de MinasLab';
+$string['minaslabname'] = 'Nombre de la actividad';
+$string['minaslabname_help'] = 'Título que verán los estudiantes en el curso y al abrir la actividad.';
+$string['practice_section'] = 'Práctica curricular';
+$string['activity_key'] = 'Práctica (asignatura + escenario)';
+$string['activity_key_help'] = 'Elige una de las 84 prácticas (3 por asignatura), alineadas al programa de carrera y al perfil de egreso. Cada una combina un escenario interactivo (mina 3D, rajo, taller, etc.) y objetivos de aprendizaje.';
+$string['practice_catalog_hint'] = 'El catálogo vincula cada asignatura de los programas oficiales con las competencias C1–C6 del perfil de egreso: operación minera, sustentabilidad y proyectos, seguridad, diseño e innovación, comunicación y liderazgo, y ética ciudadana/profesional.';
+$string['invalidactivity'] = 'Clave de práctica no válida.';
+$string['semester_group'] = 'Semestre {$a}';
+$string['author_name'] = 'John Rivera González';
+$string['author_role'] = 'Diseño curricular e integración MinasLab';
+$string['author_footer'] = 'Diseño pedagógico y escenarios de ingeniería de minas';
+$string['profile_label'] = 'Perfil de egreso (competencias)';
+$string['lab_intro_tagline'] = 'Práctica digital inmersiva para ingeniería de minas';
+$string['lab_objectives'] = 'Enfoque de aprendizaje';
+$string['lab_feedback_ok'] = 'Correcto — muy bien.';
+$string['lab_feedback_retry'] = 'Aún no — revisa la pista e inténtalo de nuevo.';
+$string['lab_check'] = 'Comprobar';
+$string['lab_next'] = 'Siguiente';
+$string['lab_hint'] = 'Pista';
+$string['lab_3d_drag'] = 'Arrastra para orbitar · rueda para zoom';
+$string['lab_conceptual'] = 'Simulación educativa — no sustituye faena real ni signos profesionales o legales.';
+$string['lab_flow_instruction'] = 'Activa las etapas en orden (de mina a producto). Cada clic debe seguir la secuencia metalúrgica correcta.';
+$string['lab_flow_sequence'] = 'Secuencia:';
+$string['lab_flow_reset'] = 'Reiniciar';
+$string['lab_thesis_hint'] = 'Arrastra los bloques en el panel izquierdo hasta el orden lógico de un informe de título.';
+$string['lab_thesis_check'] = 'Comprobar orden';
+$string['progress_label'] = 'Progreso hacia la finalización';
+$string['progress_save'] = 'Guardar progreso (borrador)';
+$string['progress_final'] = 'Enviar calificación final';
+$string['progress_done'] = 'Calificación registrada — puedes seguir revisando el escenario.';
+$string['progress_no_grade'] = 'Esta actividad no tiene nota (nota máxima 0). El progreso igual se guarda.';
+$string['privacy:metadata'] = 'Se guarda el progreso y la calificación de cada estudiante en la base de datos del módulo (tabla minaslab_user_state), además del registro estándar de Moodle.';
+$string['privacy:metadata:minaslab_user_state'] = 'Progreso y calificación de la práctica interactiva.';
+$string['privacy:metadata:minaslab_user_state:minaslabid'] = 'Identificador de la instancia MinasLab.';
+$string['privacy:metadata:minaslab_user_state:userid'] = 'Identificador del usuario.';
+$string['privacy:metadata:minaslab_user_state:progressjson'] = 'Estado de avance (JSON).';
+$string['privacy:metadata:minaslab_user_state:finalgrade'] = 'Nota final enviada al libro de calificaciones.';
+$string['privacy:metadata:minaslab_user_state:completed'] = 'Si la actividad quedó cerrada para edición.';
+$string['privacy:metadata:minaslab_user_state:timecompleted'] = 'Marca de tiempo de finalización.';
+$string['privacy:metadata:minaslab_user_state:timecreated'] = 'Creación del registro.';
+$string['privacy:metadata:minaslab_user_state:timemodified'] = 'Última modificación.';
+
+$string['minaslab:addinstance'] = 'Añadir actividad MinasLab';
+$string['minaslab:view'] = 'Ver MinasLab';
+$string['minaslab:viewcoursereport'] = 'Ver informes MinasLab del curso (progreso y calificaciones)';
+
+$string['coursereport_nav'] = 'Informe MinasLab';
+$string['coursereport_title'] = 'Informe MinasLab por curso';
+$string['coursereport_intro'] = 'Actividades MinasLab en este curso: inscritos con permiso de ver la actividad, cuántos tienen progreso guardado, finalizaciones enviadas y nota media (solo si la actividad tiene calificación).';
+$string['coursereport_catalog_hint'] = 'Catálogo global del plugin: {$a} prácticas curriculares (combinación asignatura + escenario) disponibles al crear cada actividad.';
+$string['coursereport_no_instances'] = 'No hay actividades MinasLab en este curso.';
+$string['coursereport_col_activity'] = 'Actividad';
+$string['coursereport_col_practice'] = 'Clave de práctica';
+$string['coursereport_col_subject'] = 'Asignatura (catálogo)';
+$string['coursereport_col_enrolled'] = 'Inscritos';
+$string['coursereport_col_withprogress'] = 'Con progreso';
+$string['coursereport_col_completed'] = 'Finalizados';
+$string['coursereport_col_avggrade'] = 'Nota media';
+$string['coursereport_col_actions'] = 'Detalle';
+$string['coursereport_open_detail'] = 'Estudiantes';
+
+$string['instancereport_title'] = 'Detalle MinasLab';
+$string['instancereport_meta'] = 'Práctica: <strong>{$a->key}</strong> — {$a->practice} (arquetipo: {$a->archetype}). Nota máxima del ítem: {$a->grademax}.';
+$string['instancereport_export_csv'] = 'Descargar CSV';
+$string['instancereport_col_progress'] = 'Progreso (borrador %)';
+$string['instancereport_col_final'] = 'Nota final';
+$string['instancereport_col_done'] = 'Cerrado';
+$string['instancereport_col_updated'] = 'Última modificación';
+$string['instancereport_noprog'] = 'Sin datos';

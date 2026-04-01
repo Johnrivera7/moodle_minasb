@@ -1,0 +1,41 @@
+{{!
+    MinasLab — cabecera curricular + escenario (AMD lab.js).
+}}
+<div class="minaslab-curriculum card">
+    <div class="minaslab-curriculum__meta">
+        <p class="minaslab-curriculum__eyebrow">{{subjectname}} · MinasLab</p>
+        <h3 class="minaslab-curriculum__activitytitle">{{activitytitle}}</h3>
+        <p class="minaslab-curriculum__summary">{{summary}}</p>
+        <div class="minaslab-curriculum__profiles" aria-label="{{profilelabel}}">
+            <span class="minaslab-curriculum__plabel">{{profilelabel}}:</span>
+            {{#profilebadges}}
+                <span class="minaslab-badge">{{.}}</span>
+            {{/profilebadges}}
+        </div>
+    </div>
+    <div class="minaslab-curriculum__author" role="contentinfo">
+        <div class="minaslab-curriculum__author-avatar" aria-hidden="true">JR</div>
+        <div>
+            <strong>{{author}}</strong>
+            <div class="minaslab-curriculum__author-role">{{authorrole}} · {{authorfooter}}</div>
+        </div>
+    </div>
+</div>
+
+<div class="minaslab-app" id="minaslab-root" aria-live="polite">
+    <div class="minaslab-app__hero">
+        <div class="minaslab-app__hero-inner">
+            <p class="minaslab-app__eyebrow">MinasLab · {{name}}</p>
+            <h2 class="minaslab-app__title visually-hidden">{{name}}</h2>
+            <p class="minaslab-app__tagline">{{tagline}}</p>
+        </div>
+        <div class="minaslab-app__glow" aria-hidden="true"></div>
+    </div>
+    <div class="minaslab-app__stage" id="minaslab-stage">
+        <div class="minaslab-loading" aria-busy="true">
+            <span class="minaslab-loading__dot"></span>
+            <span class="minaslab-loading__dot"></span>
+            <span class="minaslab-loading__dot"></span>
+        </div>
+    </div>
+</div>
