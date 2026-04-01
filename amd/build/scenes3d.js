@@ -11,13 +11,14 @@ define([], function() {
         var h = 380;
 
         var scene = new THREE.Scene();
-        /* Niebla más suave y fondo algo más claro para que se vea la galería (no “universo vacío”). */
-        var fogCol = 0x0c121c;
-        scene.fog = new THREE.FogExp2(fogCol, 0.012);
+        /* Niebla lineal + fondo más claro: legibilidad de paredes, rieles y suelo (no “universo”). */
+        var fogCol = 0x2d3848;
+        scene.fog = new THREE.Fog(fogCol, 14, 88);
         scene.background = new THREE.Color(fogCol);
 
         var camera = new THREE.PerspectiveCamera(52, w / h, 0.1, 220);
         camera.position.set(0, 2.2, 14);
+        scene.add(camera);
 
         var renderer = new THREE.WebGLRenderer({
             antialias: true,
@@ -32,29 +33,39 @@ define([], function() {
         renderer.toneMappingExposure = 1.22;
         host.appendChild(renderer.domElement);
 
-        var amb = new THREE.AmbientLight(0x8a9bb0, 0.52);
+        var amb = new THREE.AmbientLight(0xa0b0c8, 0.62);
         scene.add(amb);
-        scene.add(new THREE.HemisphereLight(0x6a7a90, 0x2a2218, 0.42));
+        scene.add(new THREE.HemisphereLight(0x8899aa, 0x3a3020, 0.5));
 
-        var spot = new THREE.SpotLight(theme.warm, 3.2, 90, 0.42, 0.32, 1);
+        var spot = new THREE.SpotLight(theme.warm, 4.2, 90, 0.42, 0.32, 1);
         spot.position.set(4, 8, 10);
         spot.target.position.set(0, -2, -20);
         spot.castShadow = true;
         scene.add(spot);
         scene.add(spot.target);
 
-        var fill = new THREE.PointLight(theme.cool, 1.15, 50);
+        var fill = new THREE.PointLight(theme.cool, 1.45, 50);
         fill.position.set(-4, 2, -6);
         scene.add(fill);
+
+        /* Luz tipo lámpara de casco: ilumina el frente al avanzar la cámara. */
+        var headlamp = new THREE.SpotLight(0xfff4e0, 5.5, 42, 0.72, 0.38, 1);
+        headlamp.position.set(0, 0.12, 0.22);
+        headlamp.castShadow = true;
+        var headTarget = new THREE.Object3D();
+        headTarget.position.set(0, -0.18, -1);
+        camera.add(headlamp);
+        camera.add(headTarget);
+        headlamp.target = headTarget;
 
         var tunnel = new THREE.Mesh(
             new THREE.CylinderGeometry(5.2, 5.2, 90, 48, 1, true),
             new THREE.MeshStandardMaterial({
-                color: 0x3a4558,
-                roughness: 0.88,
-                metalness: 0.12,
-                emissive: 0x151a28,
-                emissiveIntensity: 0.35,
+                color: 0x4a5668,
+                roughness: 0.86,
+                metalness: 0.1,
+                emissive: 0x1c2435,
+                emissiveIntensity: 0.48,
                 side: THREE.BackSide,
                 flatShading: false
             })
@@ -62,6 +73,15 @@ define([], function() {
         tunnel.rotation.z = Math.PI / 2;
         tunnel.receiveShadow = true;
         scene.add(tunnel);
+
+        var floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(11, 96),
+            new THREE.MeshStandardMaterial({color: 0x4a3f32, roughness: 0.94, metalness: 0.04})
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.set(0, -3.26, 0);
+        floor.receiveShadow = true;
+        scene.add(floor);
 
         var railMat = new THREE.MeshStandardMaterial({color: 0x4a5568, metalness: 0.55, roughness: 0.42});
         var ri;
@@ -164,7 +184,7 @@ define([], function() {
             scene.add(bolt);
         }
 
-        var dustCount = 200;
+        var dustCount = 72;
         var dustGeom = new THREE.BufferGeometry();
         var pos = new Float32Array(dustCount * 3);
         var i;
@@ -177,12 +197,12 @@ define([], function() {
         }
         dustGeom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
         var dustMat = new THREE.PointsMaterial({
-            color: 0x7a8a9c,
-            size: 0.04,
+            color: 0x5c6570,
+            size: 0.022,
             transparent: true,
-            opacity: 0.22,
+            opacity: 0.09,
             depthWrite: false,
-            blending: THREE.AdditiveBlending
+            blending: THREE.NormalBlending
         });
         var dust = new THREE.Points(dustGeom, dustMat);
         scene.add(dust);
@@ -209,8 +229,9 @@ define([], function() {
             camera.position.x = Math.sin(ang * 0.7 + mx) * 2.8;
             camera.position.y = 2.2 + Math.sin(tsec * 0.4) * 0.08 + my;
             camera.lookAt(0, -0.5, -12 - ang * 6);
-            spot.intensity = 1.8 + Math.sin(tsec * 2.1) * 0.35;
-            fill.intensity = 0.65 + Math.sin(tsec * 1.7) * 0.15;
+            spot.intensity = 2.2 + Math.sin(tsec * 2.1) * 0.35;
+            fill.intensity = 0.75 + Math.sin(tsec * 1.7) * 0.15;
+            headlamp.intensity = 5 + Math.sin(tsec * 3.1) * 0.4;
             dust.rotation.y = tsec * 0.02;
             var positions = dust.geometry.attributes.position.array;
             for (i = 0; i < dustCount; i++) {
@@ -281,24 +302,44 @@ define([], function() {
         var h = 380;
 
         var scene = new THREE.Scene();
-        var sky = 0x7ea8d6;
+        var sky = 0x8eb4dc;
         scene.background = new THREE.Color(sky);
-        scene.fog = new THREE.Fog(sky, 45, 180);
+        scene.fog = new THREE.Fog(sky, 35, 220);
 
         var camera = new THREE.PerspectiveCamera(48, w / h, 0.5, 600);
-        camera.position.set(42, 32, 48);
+        camera.position.set(36, 22, 36);
 
         var renderer = new THREE.WebGLRenderer({antialias: true, alpha: false});
         renderer.setSize(w, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
+        renderer.toneMappingExposure = 1.12;
         host.appendChild(renderer.domElement);
 
-        var sun = new THREE.DirectionalLight(0xfff2dd, 1.35);
+        var sun = new THREE.DirectionalLight(0xfff2dd, 1.45);
         sun.position.set(-40, 90, 30);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
+        sun.shadow.camera.near = 10;
+        sun.shadow.camera.far = 220;
+        sun.shadow.camera.left = -80;
+        sun.shadow.camera.right = 80;
+        sun.shadow.camera.top = 80;
+        sun.shadow.camera.bottom = -80;
         scene.add(sun);
-        scene.add(new THREE.HemisphereLight(0xb8c4d4, 0x4a3c28, 0.45));
+        scene.add(new THREE.HemisphereLight(0xb8c4d4, 0x5a4a38, 0.5));
+
+        var ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(320, 320),
+            new THREE.MeshStandardMaterial({color: 0x6e5a42, roughness: 0.96, metalness: 0.02})
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.08;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
         var sunMesh = new THREE.Mesh(
             new THREE.SphereGeometry(10, 20, 20),
@@ -314,12 +355,14 @@ define([], function() {
             new THREE.MeshStandardMaterial({color: 0xd4a574, roughness: 0.85})
         );
         exBase.position.y = 0.6;
+        exBase.castShadow = true;
         excav.add(exBase);
         var exCab = new THREE.Mesh(
             new THREE.BoxGeometry(2.2, 2, 2.4),
             new THREE.MeshStandardMaterial({color: 0xffcc66, metalness: 0.2, roughness: 0.6})
         );
         exCab.position.set(0, 2.2, 0.5);
+        exCab.castShadow = true;
         excav.add(exCab);
         var exBoom = new THREE.Mesh(
             new THREE.BoxGeometry(0.55, 0.55, 14),
@@ -327,6 +370,7 @@ define([], function() {
         );
         exBoom.position.set(1.2, 4.5, 5);
         exBoom.rotation.x = -0.35;
+        exBoom.castShadow = true;
         excav.add(exBoom);
         var exBucket = new THREE.Mesh(
             new THREE.BoxGeometry(1.8, 1, 2.2),
@@ -334,6 +378,7 @@ define([], function() {
         );
         exBucket.position.set(2.5, 2.8, 14);
         exBucket.rotation.x = 0.25;
+        exBucket.castShadow = true;
         excav.add(exBucket);
         excav.position.set(24, 0.2, 20);
         scene.add(excav);
@@ -345,12 +390,15 @@ define([], function() {
             tier = new THREE.Mesh(
                 new THREE.CylinderGeometry(r0, r1, 2.8, 48, 1, true),
                 new THREE.MeshStandardMaterial({
-                    color: new THREE.Color().setHSL(0.09 + level * 0.012, 0.28, 0.32 + level * 0.02),
-                    roughness: 0.98,
+                    color: new THREE.Color().setHSL(0.07 + level * 0.028, 0.42, 0.26 + level * 0.03),
+                    roughness: 0.94,
+                    metalness: 0.04,
                     side: THREE.DoubleSide
                 })
             );
             tier.position.y = level * 2.6;
+            tier.castShadow = true;
+            tier.receiveShadow = true;
             scene.add(tier);
         }
 
@@ -360,6 +408,8 @@ define([], function() {
         );
         road.rotation.x = -Math.PI / 2;
         road.position.y = 0.4;
+        road.receiveShadow = true;
+        road.castShadow = true;
         scene.add(road);
 
         var truckMat = new THREE.MeshStandardMaterial({color: 0xff6b35, metalness: 0.3, roughness: 0.65});
@@ -369,6 +419,7 @@ define([], function() {
             var grp = new THREE.Group();
             var body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.2, 4), tr % 2 === 0 ? truckMat : truckMat2);
             body.position.y = 0.8;
+            body.castShadow = true;
             grp.add(body);
             grp.position.set(Math.cos(tr * 1.02) * (14 + (tr % 3)), 1, Math.sin(tr * 1.02) * (14 + (tr % 3)));
             grp.rotation.y = tr * 1.05;
@@ -390,6 +441,34 @@ define([], function() {
         dustP.geometry.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
         scene.add(dustP);
 
+        var pitMx = 0;
+        var pitMy = 0;
+        var pitDrag = false;
+        var pitLastX = 0;
+        var pitLastY = 0;
+        var pitEl = renderer.domElement;
+        function pitOnDown(e) {
+            pitDrag = true;
+            pitLastX = e.clientX;
+            pitLastY = e.clientY;
+        }
+        function pitOnUp() {
+            pitDrag = false;
+        }
+        function pitOnMove(e) {
+            if (!pitDrag) {
+                return;
+            }
+            pitMx += (e.clientX - pitLastX) * 0.0045;
+            pitMy += (e.clientY - pitLastY) * 0.003;
+            pitLastX = e.clientX;
+            pitLastY = e.clientY;
+        }
+        pitEl.addEventListener('pointerdown', pitOnDown);
+        pitEl.addEventListener('pointerup', pitOnUp);
+        pitEl.addEventListener('pointerleave', pitOnUp);
+        pitEl.addEventListener('pointermove', pitOnMove);
+
         var camAng = 0;
         var pitAnim;
         var pitRunning = true;
@@ -398,11 +477,15 @@ define([], function() {
                 return;
             }
             pitAnim = requestAnimationFrame(loop);
-            camAng += 0.0015;
-            camera.position.x = Math.cos(camAng) * 58;
-            camera.position.z = Math.sin(camAng) * 58;
-            camera.position.y = 28 + Math.sin(camAng * 2) * 3;
-            camera.lookAt(0, 8, 0);
+            camAng += 0.0012;
+            var elev = 0.38 + Math.sin(camAng * 0.55) * 0.05 + pitMy;
+            elev = Math.max(0.2, Math.min(0.78, elev));
+            var theta = camAng + pitMx;
+            var rad = 38;
+            camera.position.x = Math.cos(theta) * rad * Math.cos(elev);
+            camera.position.z = Math.sin(theta) * rad * Math.cos(elev);
+            camera.position.y = rad * Math.sin(elev) + 9;
+            camera.lookAt(0, 6.5, 0);
             trucks.forEach(function(tk, idx) {
                 tk.rotation.y += 0.008 + idx * 0.001;
                 tk.position.y = 1 + Math.sin(camAng * 3 + idx) * 0.15;
@@ -449,6 +532,10 @@ define([], function() {
                     roPit.disconnect();
                 }
                 window.removeEventListener('resize', onResize);
+                pitEl.removeEventListener('pointerdown', pitOnDown);
+                pitEl.removeEventListener('pointerup', pitOnUp);
+                pitEl.removeEventListener('pointerleave', pitOnUp);
+                pitEl.removeEventListener('pointermove', pitOnMove);
                 renderer.dispose();
                 if (host.contains(renderer.domElement)) {
                     host.removeChild(renderer.domElement);

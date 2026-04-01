@@ -68,6 +68,18 @@ define([], function() {
             '<div class="ml-pro__meta">' +
             '<span class="ml-pro__badge">' + esc(activityKey || '') + '</span>' +
             '<span class="ml-pro__badge ml-pro__badge--dim">' + esc(activity.archetype || '') + '</span>' +
+            (function() {
+                var pr = activity.profile || [];
+                if (!pr.length) {
+                    return '';
+                }
+                var chips = '';
+                var pi;
+                for (pi = 0; pi < pr.length; pi++) {
+                    chips += '<span class="ml-pro__chip" title="Perfil de egreso">C' + parseInt(pr[pi], 10) + '</span>';
+                }
+                return '<span class="ml-pro__profile-chips" aria-label="Competencias">' + chips + '</span>';
+            })() +
             '</div></header>' +
             '<div class="ml-pro__toolbar">' +
             '<p class="ml-pro__what" id="ml-pro-what">' + esc(strings.whatToDo || '') + '</p>' +

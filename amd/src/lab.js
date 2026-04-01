@@ -1,5 +1,5 @@
 // MinasLab — motor curricular: 84 prácticas en catálogo PHP → motores por arquetipo (shell + escenas 3D/2D).
-define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, labui, scenes3d) {
+define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/lab_practices'], function($, labui, scenes3d, labpractices) {
     'use strict';
 
     var THREE = null;
@@ -48,9 +48,23 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             .replace(/"/g, '&quot;');
     }
 
-    function panelHtml(title, body, extraClass) {
+    function panelHtml(title, body, extraClass, activity, t) {
+        var profBlock = '';
+        if (activity && activity.profile && activity.profile.length && t && t.profileLabel) {
+            var badges = activity.profile.map(function(p) {
+                return 'C' + parseInt(p, 10);
+            }).join(', ');
+            profBlock = '<p class="ml-panel__profile"><span class="ml-panel__profile-lbl">' + esc(t.profileLabel) +
+                '</span> <span class="ml-panel__profile-badges">' + esc(badges) + '</span></p>';
+        }
+        var dataFocus = '';
+        if (t && t.practiceDataFocus) {
+            dataFocus = '<p class="ml-panel__data-focus">' + esc(t.practiceDataFocus) + '</p>';
+        }
         return '<div class="ml-panel ' + (extraClass || '') + '">' +
             '<h4 class="ml-panel__t">' + esc(title) + '</h4>' +
+            profBlock +
+            dataFocus +
             '<p class="ml-panel__b">' + esc(body) + '</p>' +
             '</div>';
     }
@@ -63,6 +77,21 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
         return {a: a, b: b, ans: a + b};
     }
 
+    function setPracticeProgress(percent) {
+        window.setTimeout(function() {
+            var r = document.querySelector('#minaslab-stage .ml-progress-foot__range');
+            var p = document.querySelector('#minaslab-stage .ml-progress-foot__pct');
+            var v = Math.min(100, Math.max(0, Math.round(percent)));
+            if (r) {
+                r.value = String(v);
+                r.setAttribute('aria-valuetext', v + '%');
+            }
+            if (p) {
+                p.textContent = String(v);
+            }
+        }, 0);
+    }
+
     function openShell(container, activity, cfg) {
         container.innerHTML = '';
         return labui.buildSimulationShell(container, activity, cfg.activityKey || '', cfg.strings || {});
@@ -72,10 +101,8 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
         var shell = openShell(container, activity, cfg);
         var theme = labui.themeFromKey(cfg.activityKey);
         shell.aside.innerHTML =
-            panelHtml(activity.title, activity.summary) +
-            '<ul class="ml-aside-list"><li>Iluminación de trabajo y sombras dinámicas</li>' +
-            '<li>Polvo suspendido simulado (partículas)</li>' +
-            '<li>Rieles, durmientes y cable colgante</li></ul>' +
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-guided-host" id="ml-guided-tunnel"></div>' +
             '<p class="ml-note">' + esc(t.drag3d) + '</p>' +
             '<p class="ml-note ml-note--warn">' + esc(t.conceptual) + '</p>';
 
@@ -84,16 +111,26 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             return;
         }
         scenes3d.mountTunnel(shell.viewport, activity, theme, THREE);
+
+        var host = shell.aside.querySelector('#ml-guided-tunnel');
+        if (host) {
+            labpractices.mountGuidedTunnel(host, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
+            });
+        }
     }
 
     function mountPit3d(container, activity, t, cfg) {
         var shell = openShell(container, activity, cfg);
         var theme = labui.themeFromKey(cfg.activityKey);
         shell.aside.innerHTML =
-            panelHtml(activity.title, activity.summary) +
-            '<ul class="ml-aside-list"><li>Plataformas tipo banco de explotación</li>' +
-            '<li>Rampa helicoidal y polvo ambiental</li>' +
-            '<li>Equipos de transporte en movimiento orbital</li></ul>' +
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-guided-host" id="ml-guided-pit"></div>' +
             '<p class="ml-note">' + esc(t.drag3d) + '</p>' +
             '<p class="ml-note ml-note--warn">' + esc(t.conceptual) + '</p>';
 
@@ -102,13 +139,24 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             return;
         }
         scenes3d.mountPit(shell.viewport, activity, theme, THREE);
+
+        var hostP = shell.aside.querySelector('#ml-guided-pit');
+        if (hostP) {
+            labpractices.mountGuidedPit(hostP, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
+            });
+        }
     }
 
     function mountMathMine(container, activity, t, cfg) {
         var p = problemFromKey(cfg.activityKey);
         var a = p.a;
         var b = p.b;
-        var ans = p.ans;
         var shell = openShell(container, activity, cfg);
         shell.viewport.classList.add('ml-pro__viewport--split');
         shell.viewport.innerHTML =
@@ -119,15 +167,8 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '<p class="ml-math__cap">Taller · ' + esc(activity.subject_name) + '</p>' +
             '</div></div>';
         shell.aside.innerHTML =
-            panelHtml(activity.title, activity.summary) +
-            '<div class="ml-quiz">' +
-            '<p class="ml-quiz__q">Contexto faena: en un turno se registran <strong>' + a +
-            '</strong> viajes de camión y luego <strong>' + b +
-            '</strong> adicionales. ¿Total de viajes?</p>' +
-            '<input type="number" class="ml-quiz__in" id="ml-math-ans" aria-label="Respuesta"/>' +
-            '<button type="button" class="ml-btn" id="ml-math-check">' + esc(t.check) + '</button>' +
-            '<p class="ml-feedback" id="ml-math-fb" role="status"></p>' +
-            '</div>' +
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-quiz" id="ml-math-quiz"></div>' +
             '<p class="ml-note ml-note--warn">' + esc(t.conceptual) + '</p>';
 
         var grid = shell.viewport.querySelector('.ml-math__grid');
@@ -140,17 +181,13 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             grid.appendChild(d);
         }
 
-        shell.aside.querySelector('#ml-math-check').addEventListener('click', function() {
-            var v = parseInt(shell.aside.querySelector('#ml-math-ans').value, 10);
-            var fb = shell.aside.querySelector('#ml-math-fb');
-            if (v === ans) {
-                fb.textContent = t.feedbackOk;
-                fb.className = 'ml-feedback ml-feedback--ok';
-                setRootScore(100);
-            } else {
-                fb.textContent = t.feedbackRetry;
-                fb.className = 'ml-feedback ml-feedback--bad';
-            }
+        labpractices.mountGuidedMathMine(shell.aside, activity, cfg, {
+            esc: esc,
+            strings: t,
+            setPracticeProgress: setPracticeProgress,
+            setRootScore: setRootScore,
+            activityKey: cfg.activityKey,
+            activity: activity
         });
     }
 
@@ -178,7 +215,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '<button type="button" class="ml-btn ml-btn--sec ml-flow__reset" id="ml-flow-reset">' + esc(t.flowReset || '') + '</button>' +
             '<p class="ml-feedback" id="ml-flow-fb" role="status"></p></div>';
         shell.aside.innerHTML =
-            panelHtml(activity.title, activity.summary) +
+            panelHtml(activity.title, activity.summary, '', activity, t) +
             '<ol class="ml-flow__steps">' +
             '<li>Chancado primario / secundario</li>' +
             '<li>Molienda hasta liberación del mineral</li>' +
@@ -187,6 +224,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '<li>Espesamiento y filtrado</li>' +
             '<li>Concentrado final y manejo de relaves</li>' +
             '</ol>' +
+            '<p class="ml-flow__competency">' + esc(t.flowCompetencyHint || '') + '</p>' +
             '<p class="ml-note ml-note--warn">' + esc(t.conceptual) + '</p>';
 
         var nextExpected = 1;
@@ -254,31 +292,20 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '<div class="ml-safe__visual" aria-hidden="true">' +
             '<div class="ml-safe__helmet"></div><div class="ml-safe__beam"></div></div></div>';
         shell.aside.innerHTML =
-            panelHtml(activity.title, activity.summary) +
-            '<div class="ml-safe__grid">' +
-            '<label class="ml-cb"><input type="checkbox" data-ok="1"/> EPI completo en zona de riesgo</label>' +
-            '<label class="ml-cb"><input type="checkbox" data-ok="1"/> Permiso de trabajo revisado</label>' +
-            '<label class="ml-cb"><input type="checkbox" data-ok="0"/> Ignorar señalética si hay prisa</label>' +
-            '</div>' +
-            '<button type="button" class="ml-btn" id="ml-safe-go">' + esc(t.check) + '</button>' +
-            '<p class="ml-feedback" id="ml-safe-fb"></p>';
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-guided-host" id="ml-guided-safe"></div>';
 
-        shell.aside.querySelector('#ml-safe-go').addEventListener('click', function() {
-            var boxes = shell.aside.querySelectorAll('.ml-cb input');
-            var ok = true;
-            boxes.forEach(function(inp) {
-                var want = inp.getAttribute('data-ok') === '1';
-                if (inp.checked !== want) {
-                    ok = false;
-                }
+        var hs = shell.aside.querySelector('#ml-guided-safe');
+        if (hs) {
+            labpractices.mountGuidedSafety(hs, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
             });
-            var fb = shell.aside.querySelector('#ml-safe-fb');
-            fb.textContent = ok ? t.feedbackOk : t.feedbackRetry;
-            fb.className = 'ml-feedback ' + (ok ? 'ml-feedback--ok' : 'ml-feedback--bad');
-            if (ok) {
-                setRootScore(100);
-            }
-        });
+        }
     }
 
     function mountSurveyField(container, activity, t, cfg) {
@@ -294,8 +321,9 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '<text x="212" y="44" fill="#8b98ab" font-size="11">P</text>' +
             '</svg></div>';
         shell.aside.innerHTML =
-            panelHtml(activity.title, activity.summary) +
-            '<p>Ajusta el acimut (°) para el replanteo:</p>' +
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-guided-host" id="ml-guided-survey"></div>' +
+            '<p class="ml-survey__lab">Replanteo (visual): acimut (°)</p>' +
             '<input type="range" min="0" max="90" value="45" class="ml-survey__r"/>' +
             '<p class="ml-survey__out">Azimut: <span class="ml-survey__val">45</span>°</p>';
         var r = shell.aside.querySelector('.ml-survey__r');
@@ -303,16 +331,26 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
         r.addEventListener('input', function() {
             v.textContent = r.value;
         });
+        var hsv = shell.aside.querySelector('#ml-guided-survey');
+        if (hsv) {
+            labpractices.mountGuidedSurvey(hsv, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
+            });
+        }
     }
 
     function mountVentShaft(container, activity, t, cfg) {
         var shell = openShell(container, activity, cfg);
         var theme = labui.themeFromKey(cfg.activityKey);
         shell.aside.innerHTML =
-            panelHtml(activity.title, activity.summary) +
-            '<ul class="ml-aside-list"><li>Aire fresco (ascendente) y retorno</li>' +
-            '<li>Ventilador principal y pérdidas de carga (conceptual)</li></ul>' +
-            '<label class="ml-ventlab">Caudal Q (relativo %) ' +
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-guided-host" id="ml-guided-vent"></div>' +
+            '<label class="ml-ventlab">Caudal Q en escena (relativo %) ' +
             '<input type="range" min="10" max="100" value="55" id="ml-vent-r"/></label>' +
             '<p class="ml-note ml-note--warn">' + esc(t.conceptual) + '</p>';
 
@@ -321,16 +359,29 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             return;
         }
         scenes3d.mountVent(shell.viewport, activity, theme, THREE);
+
+        var hv = shell.aside.querySelector('#ml-guided-vent');
+        if (hv) {
+            labpractices.mountGuidedVent(hv, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
+            });
+        }
     }
 
     function mountOfficeSim(container, activity, t, cfg) {
         var shell = openShell(container, activity, cfg);
         shell.viewport.innerHTML = '<div class="ml-office__viz"></div>';
         shell.aside.innerHTML =
+            panelHtml(activity.title, activity.summary, '', activity, t) +
             '<div class="ml-office">' +
             '<div class="ml-office__card">' +
-            '<h4>' + esc(activity.title) + '</h4>' +
-            '<p>' + esc(activity.summary) + '</p>' +
+            '<h4>' + esc(t.officeSensitivityTitle || '') + '</h4>' +
+            '<p class="ml-office__sub">' + esc(t.officeSensitivityBlurb || '') + '</p>' +
             '<div class="ml-office__inputs">' +
             '<label>Inversión inicial (MUSD)<input type="number" value="120" id="ml-inv" min="0" step="1"/></label>' +
             '<label>Tasa descuento anual %<input type="number" value="10" id="ml-rate" min="0" max="40" step="0.5"/></label>' +
@@ -338,7 +389,8 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '</div>' +
             '<p class="ml-office__npv" id="ml-office-npv" aria-live="polite"></p>' +
             '<p class="ml-office__hint">Modelo didáctico: flujo anual constante ≈ 11 % de la inversión (solo exploración de sensibilidad).</p>' +
-            '</div></div>';
+            '</div></div>' +
+            '<div class="ml-guided-host" id="ml-guided-office"></div>';
 
         function officeNpv() {
             var inv = parseFloat(shell.aside.querySelector('#ml-inv').value) || 0;
@@ -358,6 +410,17 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             shell.aside.querySelector(sel).addEventListener('input', officeNpv);
         });
         officeNpv();
+        var ho = shell.aside.querySelector('#ml-guided-office');
+        if (ho) {
+            labpractices.mountGuidedOffice(ho, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
+            });
+        }
     }
 
     function mountEnglishMine(container, activity, t, cfg) {
@@ -369,25 +432,22 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '<span class="ml-en__time">06:45</span>' +
             '</div>' +
             '<div class="ml-en__body">' +
-            '<p class="ml-en__prompt">Match: "Hard hat" →</p>' +
-            '<div class="ml-en__opts">' +
-            '<button type="button" class="ml-btn" data-c="0">Casco de seguridad</button>' +
-            '<button type="button" class="ml-btn" data-c="1">Caseta de café</button>' +
-            '</div>' +
-            '<p class="ml-feedback" id="ml-en-fb"></p>' +
+            '<p class="ml-en__prompt">' + esc(t.englishHudPrompt || '') + '</p>' +
             '</div></div>';
-        shell.aside.innerHTML = '<p class="ml-note">' + esc(activity.summary) + '</p>';
-        shell.viewport.querySelectorAll('.ml-en__opts .ml-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var ok = btn.getAttribute('data-c') === '0';
-                var fb = shell.viewport.querySelector('#ml-en-fb');
-                fb.textContent = ok ? t.feedbackOk : t.feedbackRetry;
-                fb.className = 'ml-feedback ' + (ok ? 'ml-feedback--ok' : 'ml-feedback--bad');
-                if (ok) {
-                    setRootScore(100);
-                }
+        shell.aside.innerHTML =
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-guided-host" id="ml-guided-en"></div>';
+        var he = shell.aside.querySelector('#ml-guided-en');
+        if (he) {
+            labpractices.mountGuidedEnglish(he, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
             });
-        });
+        }
     }
 
     function mountDrillSite(container, activity, t, cfg) {
@@ -395,9 +455,20 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
         shell.viewport.innerHTML =
             '<canvas class="ml-drill__cv" id="ml-drill-cv" width="560" height="280"></canvas>';
         shell.aside.innerHTML =
-            '<h4>' + esc(activity.title) + '</h4>' +
-            '<p>' + esc(activity.summary) + '</p>' +
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-guided-host" id="ml-guided-drill"></div>' +
             '<p class="ml-note ml-note--warn">' + esc(t.conceptual) + '</p>';
+        var hd = shell.aside.querySelector('#ml-guided-drill');
+        if (hd) {
+            labpractices.mountGuidedDrill(hd, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
+            });
+        }
         var cv = shell.viewport.querySelector('#ml-drill-cv');
         var ctx = cv.getContext('2d');
         var x = 0;
@@ -454,10 +525,10 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '<li draggable="true" data-n="4">Resultados esperados</li>' +
             '</ul></div>';
         shell.aside.innerHTML =
+            panelHtml(activity.title, activity.summary, '', activity, t) +
             '<p class="ml-thesis__hint">' + esc(t.thesisHint || '') + '</p>' +
             '<button type="button" class="ml-btn" id="ml-thesis-check">' + esc(t.thesisCheck || '') + '</button>' +
-            '<p class="ml-feedback" id="ml-thesis-fb" role="status"></p>' +
-            '<p class="ml-note">' + esc(activity.summary) + '</p>';
+            '<p class="ml-feedback" id="ml-thesis-fb" role="status"></p>';
 
         var ul = shell.viewport.querySelector('#ml-thesis-ul');
         var order = thesisShuffleOrder(cfg.activityKey);
@@ -524,8 +595,19 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
             '<div class="ml-innov__s ml-innov__s--3">Automatización de perforación</div>' +
             '</div></div>';
         shell.aside.innerHTML =
-            '<p class="ml-innov__cap">' + esc(activity.title) + '</p>' +
-            '<p>' + esc(activity.summary) + '</p>';
+            panelHtml(activity.title, activity.summary, '', activity, t) +
+            '<div class="ml-guided-host" id="ml-guided-innov"></div>';
+        var hi = shell.aside.querySelector('#ml-guided-innov');
+        if (hi) {
+            labpractices.mountGuidedInnovation(hi, activity, cfg, {
+                esc: esc,
+                strings: t,
+                setPracticeProgress: setPracticeProgress,
+                setRootScore: setRootScore,
+                activityKey: cfg.activityKey,
+                activity: activity
+            });
+        }
     }
 
     function setRootScore(val) {
