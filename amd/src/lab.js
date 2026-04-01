@@ -196,7 +196,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
         viewport.appendChild(leg);
     }
 
-    function appendPitLegend(viewport, t, bermRefM) {
+    function appendPitLegend(viewport, t, bermRefM, pitScene) {
         var prev = viewport.querySelector('.ml-3d-legend');
         if (prev) {
             prev.remove();
@@ -204,7 +204,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
         var leg = document.createElement('div');
         leg.className = 'ml-3d-legend';
         leg.setAttribute('role', 'note');
-        var base = t.sceneLegendPit || '';
+        var base = (pitScene === 'cycle' && t.sceneLegendPitCycle) ? t.sceneLegendPitCycle : (t.sceneLegendPit || '');
         if (bermRefM != null && t.sceneLegendPitBerm) {
             leg.textContent = base + ' ' + t.sceneLegendPitBerm.replace('##', String(bermRefM));
         } else {
@@ -266,8 +266,14 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             measureHint: t.pitMeasureHint,
             distLabel: t.pitDistLabel
         };
-        scenes3d.mountPit(shell.viewport, activity, theme, THREE);
-        appendPitLegend(shell.viewport, t, labpractices.getPitBermRefMeters(cfg.activityKey));
+        var pitScene = (activity && activity.pit_scene === 'cycle') ? 'cycle' : 'design';
+        if (pitScene === 'cycle') {
+            scenes3d.mountPitCycle(shell.viewport, activity, theme, THREE);
+        } else {
+            scenes3d.mountPit(shell.viewport, activity, theme, THREE);
+        }
+        var bermM = pitScene === 'cycle' ? null : labpractices.getPitBermRefMeters(cfg.activityKey);
+        appendPitLegend(shell.viewport, t, bermM, pitScene);
 
         var hostP = shell.aside.querySelector('#ml-guided-pit');
         if (hostP) {

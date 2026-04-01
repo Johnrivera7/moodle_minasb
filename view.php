@@ -95,6 +95,7 @@ $bootstrap = [
         'sceneLegendTunnel' => $str('scene_legend_tunnel'),
         'sceneLegendPit' => $str('scene_legend_pit'),
         'sceneLegendPitBerm' => $str('scene_legend_pit_berm'),
+        'sceneLegendPitCycle' => $str('scene_legend_pit_cycle'),
         'pitPresetIso' => $str('pit_preset_iso'),
         'pitPresetPlan' => $str('pit_preset_plan'),
         'pitPresetSection' => $str('pit_preset_section'),

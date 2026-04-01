@@ -110,6 +110,7 @@ $string['scene_legend_algebra'] = 'Escena 3D: frente de voladura con barrenos; e
 $string['scene_legend_tunnel'] = 'Escena 3D: galería con rieles, sostenimiento y señalización (faena subterránea).';
 $string['scene_legend_pit'] = 'Escena 3D: tajo (vista tipo plano) — líneas azules = bancos y bermas; franja oscura = rampa; curvas exteriores = terreno; equipos en niveles.';
 $string['scene_legend_pit_berm'] = 'Berma de referencia (paso 1): ## m.';
+$string['scene_legend_pit_cycle'] = 'Escena 3D: ciclo de rajo — colores de etapa (perforación, carguío, transporte, botadero); camiones en rampa en movimiento; polvo en perforación; vista didáctica (no escala real).';
 $string['pit_preset_iso'] = 'Vista ISO';
 $string['pit_preset_plan'] = 'Planta';
 $string['pit_preset_section'] = 'Perfil';

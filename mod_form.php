@@ -49,8 +49,8 @@ class mod_minaslab_mod_form extends moodleform_mod {
     public function data_preprocessing(&$defaultvalues) {
         parent::data_preprocessing($defaultvalues);
 
-        if ($this->current->instance) {
-            $context = context_module::instance($this->current->cm->id);
+        if (!empty($this->current->instance) && !empty($this->current->coursemodule)) {
+            $context = context_module::instance($this->current->coursemodule);
             $opts = minaslab_intro_editor_options($context);
             $defaultvalues = file_prepare_standard_editor(
                 $defaultvalues,

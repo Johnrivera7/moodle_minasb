@@ -110,6 +110,7 @@ $string['scene_legend_algebra'] = '3D: blast face with drill holes; frame = 2×2
 $string['scene_legend_tunnel'] = '3D: gallery with rails and ground support (underground operations).';
 $string['scene_legend_pit'] = '3D: open pit (technical-style view) — blue lines = benches/berms; dark strip = ramp; outer contours = terrain; equipment on levels.';
 $string['scene_legend_pit_berm'] = 'Reference berm width (step 1): ## m.';
+$string['scene_legend_pit_cycle'] = '3D: open-pit cycle — stage colours (drilling, loading, haulage, dump); trucks moving on the ramp; dust at drills; illustrative scale.';
 $string['pit_preset_iso'] = 'ISO view';
 $string['pit_preset_plan'] = 'Plan';
 $string['pit_preset_section'] = 'Section';

@@ -2,6 +2,8 @@
 
 Plugin de actividad para **Moodle 4.5+**: laboratorio virtual de Ingeniería en Minas (escenarios 3D/2D, catálogo curricular, progreso y calificación).
 
+**Repositorio:** [github.com/Johnrivera7/moodle_minasb](https://github.com/Johnrivera7/moodle_minasb)
+
 ## Instalación
 
 1. Copiar esta carpeta como `mod/minaslab` dentro del árbol de Moodle (o clonar este repositorio en esa ruta).
