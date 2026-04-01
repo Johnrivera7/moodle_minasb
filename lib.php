@@ -64,8 +64,13 @@ function minaslab_add_instance(object $data, $mform = null): int {
     return $id;
 }
 
-function minaslab_update_instance(object $data, $mform = null): bool {
+function minaslab_update_instance($data, $mform = null): bool {
     global $DB;
+
+    // El núcleo puede entregar stdClass o array según contexto.
+    if (is_array($data)) {
+        $data = (object) $data;
+    }
 
     $data->timemodified = time();
     $data->id = $data->instance;
@@ -74,11 +79,25 @@ function minaslab_update_instance(object $data, $mform = null): bool {
         $data->activity_key = \mod_minaslab\local\activity_catalog::default_key();
     }
 
-    $DB->update_record('minaslab', $data);
-
+    $old = $DB->get_record('minaslab', ['id' => $data->instance], MUST_EXIST);
     $context = context_module::instance($data->coursemodule);
     $opts = minaslab_intro_editor_options($context);
-    $data = file_postupdate_standard_editor($data, 'intro', $opts, $context, 'mod_minaslab', 'intro', 0);
+
+    // file_postupdate_standard_editor() requiere intro_editor (texto/formato/itemid). Si no viene (envío parcial), se conserva la descripción previa.
+    if (property_exists($data, 'intro_editor') && $data->intro_editor !== null) {
+        $data = file_postupdate_standard_editor($data, 'intro', $opts, $context, 'mod_minaslab', 'intro', 0);
+    } else {
+        $data->intro = $old->intro;
+        $data->introformat = $old->introformat;
+    }
+
+    if (!property_exists($data, 'intro') || $data->intro === null) {
+        $data->intro = '';
+    }
+    if (!property_exists($data, 'introformat') || $data->introformat === null) {
+        $data->introformat = FORMAT_HTML;
+    }
+
     $DB->update_record('minaslab', $data);
 
     $minaslab = $DB->get_record('minaslab', ['id' => $data->instance]);

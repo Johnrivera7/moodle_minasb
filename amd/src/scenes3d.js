@@ -1183,7 +1183,7 @@ define([], function() {
                 u = ((u % 1) + 1) % 1;
                 var turns = 5.15 * Math.PI * 2;
                 var ang = u * turns;
-                var r = 32.5 - u * 24.5;
+                var r = 36 - u * 26.5;
                 var y = u * 15.1 + 0.35;
                 return new THREE.Vector3(Math.cos(ang) * r, y, Math.sin(ang) * r);
             }
@@ -1209,7 +1209,7 @@ define([], function() {
         function makeMiningHaulTruck(THREE, primaryHex) {
             var g = new THREE.Group();
             var dark = new THREE.MeshStandardMaterial({color: 0x1a1a1a, roughness: 0.88, metalness: 0.12});
-            var body = new THREE.MeshStandardMaterial({color: primaryHex, roughness: 0.58, metalness: 0.38});
+            var body = new THREE.MeshStandardMaterial({color: primaryHex, roughness: 0.48, metalness: 0.42});
             var chrome = new THREE.MeshStandardMaterial({color: 0xb8c0c8, roughness: 0.4, metalness: 0.55});
             var tire = new THREE.MeshStandardMaterial({color: 0x0d0d0d, roughness: 0.95, metalness: 0.02});
             var chassis = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.7, 13.2), dark);
@@ -1276,6 +1276,8 @@ define([], function() {
             var stack = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 1.35, 8), dark);
             stack.position.set(1.5, 3.5, 4.8);
             g.add(stack);
+            /* Escala global: camiones más pequeños respecto al tajo (lectura a escala mina real). */
+            g.scale.set(0.48, 0.48, 0.48);
             return {root: g, bedGroup: bedGroup};
         }
 
@@ -1374,8 +1376,8 @@ define([], function() {
 
         var lv;
         for (lv = 0; lv < 7; lv++) {
-            var r0 = 27 - lv * 2.85;
-            var r1 = 24.5 - lv * 2.85;
+            var r0 = 30 - lv * 2.9;
+            var r1 = 27.5 - lv * 2.9;
             if (r1 < 3) {
                 break;
             }
@@ -1394,9 +1396,9 @@ define([], function() {
             pitSolidMeshes.push(tier);
         }
 
-        var roadSurfMat = new THREE.MeshStandardMaterial({color: 0x4f4a42, roughness: 0.86, metalness: 0.1});
+        var roadSurfMat = new THREE.MeshStandardMaterial({color: 0x4a433a, roughness: 0.9, metalness: 0.06});
         var roadTube = new THREE.Mesh(
-            new THREE.TubeGeometry(pathCurve.curve, 260, 3.5, 14, false),
+            new THREE.TubeGeometry(pathCurve.curve, 260, 2.15, 14, false),
             roadSurfMat
         );
         roadTube.castShadow = true;
@@ -1802,9 +1804,9 @@ define([], function() {
                 }
                 var p = pathCurve.pointAt(rt.u);
                 var tn = pathCurve.tangentAt(rt.u);
-                rt.g.position.set(p.x, p.y + 0.42, p.z);
+                rt.g.position.set(p.x, p.y + 0.24, p.z);
                 var look = p.clone().add(tn);
-                rt.g.lookAt(look.x, look.y + 0.42, look.z);
+                rt.g.lookAt(look.x, look.y + 0.24, look.z);
             });
 
             exG.rotation.y = Math.sin(camAng * 1.6) * 0.35;
