@@ -178,6 +178,105 @@ define([], function() {
     }
 
     /**
+     * Vista desde dentro de galería: mirar con arrastre (yaw/pitch acotado), avanzar/retroceder con rueda o pellizco.
+     * Evita la órbita esférica (sensación cenital / no “entrar” al túnel).
+     */
+    function attachTunnelInteriorControls(THREE, domElement, camera, options) {
+        options = options || {};
+        var camZ = options.initialZ != null ? options.initialZ : 12;
+        var minZ = options.minZ != null ? options.minZ : -38;
+        var maxZ = options.maxZ != null ? options.maxZ : 14;
+        var eyeY = options.eyeY != null ? options.eyeY : -1.55;
+        var yaw = options.initialYaw != null ? options.initialYaw : 0;
+        var pitch = options.initialPitch != null ? options.initialPitch : 0;
+        var minPitch = options.minPitch != null ? options.minPitch : -0.24;
+        var maxPitch = options.maxPitch != null ? options.maxPitch : 0.14;
+        var dragging = {v: false};
+        var activePid = -1;
+        var lastX = 0;
+        var lastY = 0;
+
+        function applyCam() {
+            pitch = Math.max(minPitch, Math.min(maxPitch, pitch));
+            camZ = Math.max(minZ, Math.min(maxZ, camZ));
+            camera.position.set(0, eyeY, camZ);
+            camera.rotation.order = 'YXZ';
+            camera.rotation.set(pitch, yaw, 0);
+        }
+        applyCam();
+
+        function onPointerDown(e) {
+            if (e.button !== 0 && e.pointerType !== 'touch' && e.pointerType !== 'pen') {
+                return;
+            }
+            dragging.v = true;
+            activePid = e.pointerId;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            domElement.style.cursor = 'grabbing';
+            try {
+                domElement.setPointerCapture(e.pointerId);
+            } catch (err) {
+                // ignore
+            }
+        }
+        function onPointerUp(e) {
+            dragging.v = false;
+            domElement.style.cursor = 'grab';
+            try {
+                domElement.releasePointerCapture(e.pointerId);
+            } catch (err2) {
+                // ignore
+            }
+        }
+        function onPointerMove(e) {
+            if (!dragging.v || e.pointerId !== activePid) {
+                return;
+            }
+            var dx = e.clientX - lastX;
+            var dy = e.clientY - lastY;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            yaw -= dx * 0.0052;
+            pitch -= dy * 0.0042;
+            applyCam();
+        }
+        function onWheel(e) {
+            e.preventDefault();
+            var dy = e.deltaY;
+            if (e.deltaMode === 1) {
+                dy *= 14;
+            } else if (e.deltaMode === 2) {
+                dy *= 60;
+            }
+            var sens = e.ctrlKey ? 0.038 : 0.026;
+            camZ -= dy * sens;
+            applyCam();
+        }
+
+        domElement.style.touchAction = 'none';
+        domElement.style.cursor = 'grab';
+        domElement.addEventListener('pointerdown', onPointerDown);
+        domElement.addEventListener('pointerup', onPointerUp);
+        domElement.addEventListener('pointercancel', onPointerUp);
+        domElement.addEventListener('pointerleave', onPointerUp);
+        domElement.addEventListener('pointermove', onPointerMove);
+        domElement.addEventListener('wheel', onWheel, {passive: false});
+
+        return {
+            dispose: function() {
+                domElement.removeEventListener('pointerdown', onPointerDown);
+                domElement.removeEventListener('pointerup', onPointerUp);
+                domElement.removeEventListener('pointercancel', onPointerUp);
+                domElement.removeEventListener('pointerleave', onPointerUp);
+                domElement.removeEventListener('pointermove', onPointerMove);
+                domElement.removeEventListener('wheel', onWheel);
+            },
+            applyCam: applyCam
+        };
+    }
+
+    /**
      * Álgebra / voladura: frente de malla con barrenos (2×2 resaltado) — sin rieles de túnel.
      */
     function mountBlastFace(viewport, activity, theme, THREE) {
@@ -403,7 +502,7 @@ define([], function() {
         scene.fog = new THREE.Fog(fogCol, 6, 52);
         scene.background = new THREE.Color(fogCol);
 
-        var camera = new THREE.PerspectiveCamera(58, w / h, 0.08, 220);
+        var camera = new THREE.PerspectiveCamera(50, w / h, 0.06, 220);
         scene.add(camera);
 
         var renderer = new THREE.WebGLRenderer({
@@ -755,16 +854,16 @@ define([], function() {
         var dust = new THREE.Points(dustGeom, dustMat);
         scene.add(dust);
 
-        /* Órbita centrada en el eje de marcha: vista desde dentro (no cenital). maxPhi limita “vista de pájaro”. */
-        var tunnelLook = new THREE.Vector3(0, 0.75, -7);
-        var orbitTunnel = attachTrackpadOrbit(THREE, renderer.domElement, camera, tunnelLook, {
-            theta: 0,
-            phi: 0.165,
-            radius: 7.4,
-            minR: 2.4,
-            maxR: 20,
-            minPhi: 0.035,
-            maxPhi: 0.34
+        /* Recorrido interior: mirar con arrastre, avanzar/retroceder con rueda (no órbita cenital). */
+        var tunnelWalk = attachTunnelInteriorControls(THREE, renderer.domElement, camera, {
+            initialZ: 11.2,
+            minZ: -37,
+            maxZ: 13.2,
+            eyeY: -1.52,
+            initialYaw: 0,
+            initialPitch: 0,
+            minPitch: -0.22,
+            maxPitch: 0.11
         });
 
         var animId;
@@ -832,7 +931,7 @@ define([], function() {
                     ro.disconnect();
                 }
                 window.removeEventListener('resize', onResize);
-                orbitTunnel.dispose();
+                tunnelWalk.dispose();
                 renderer.dispose();
                 if (host.contains(renderer.domElement)) {
                     host.removeChild(renderer.domElement);

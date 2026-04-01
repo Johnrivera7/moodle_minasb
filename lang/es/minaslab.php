@@ -115,7 +115,7 @@ $string['office_sensitivity_title'] = 'Sensibilidad económica (VPN indicativa)'
 $string['office_sensitivity_blurb'] = 'Ajusta inversión, tasa y horizonte para ver el efecto en la VPN del modelo didáctico (bloques de decisión tipo estudio de pre-factibilidad).';
 $string['english_hud_prompt'] = 'Briefing de radio en faena — completa la práctica guiada a la derecha (C5 comunicación técnica).';
 $string['scene_legend_algebra'] = 'Escena 3D: frente de voladura con barrenos; el marco simboliza la matriz 2×2 (cargas). No es túnel con rieles.';
-$string['scene_legend_tunnel'] = 'Escena 3D: vista interior de galería (órbita limitada, sin cenital); rieles, cerchas, boca de acceso, flechas de ingreso e iluminación tipo casco/lámparas; carteles DS N° 132 (EPP, evacuación, ventilación).';
+$string['scene_legend_tunnel'] = 'Escena 3D: recorrido interior — arrastra para mirar; rueda del ratón o pellizco (trackpad) para avanzar o retroceder por la galería. Rieles, cerchas, boca de acceso, flechas en el piso, lámparas y carteles DS N° 132 (EPP, evacuación, ventilación).';
 $string['scene_legend_pit'] = 'Escena 3D: tajo (vista tipo plano) — líneas azules = bancos y bermas; franja oscura = rampa; curvas exteriores = terreno; equipos en niveles.';
 $string['scene_legend_pit_berm'] = 'Berma de referencia (paso 1): ## m.';
 $string['scene_legend_pit_cycle'] = 'Ciclo de rajo: camiones de acarreo en rampa helicoidal, perforadoras, excavadora y botadero. Usa «Etapas» para enfocar cada fase. Escala didáctica.';
