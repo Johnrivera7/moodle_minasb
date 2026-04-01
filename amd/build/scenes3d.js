@@ -11,8 +11,9 @@ define([], function() {
         var h = 380;
 
         var scene = new THREE.Scene();
-        var fogCol = 0x06090e;
-        scene.fog = new THREE.FogExp2(fogCol, 0.028);
+        /* Niebla más suave y fondo algo más claro para que se vea la galería (no “universo vacío”). */
+        var fogCol = 0x0c121c;
+        scene.fog = new THREE.FogExp2(fogCol, 0.012);
         scene.background = new THREE.Color(fogCol);
 
         var camera = new THREE.PerspectiveCamera(52, w / h, 0.1, 220);
@@ -28,29 +29,32 @@ define([], function() {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.05;
+        renderer.toneMappingExposure = 1.22;
         host.appendChild(renderer.domElement);
 
-        var amb = new THREE.AmbientLight(0x3a4555, 0.35);
+        var amb = new THREE.AmbientLight(0x8a9bb0, 0.52);
         scene.add(amb);
+        scene.add(new THREE.HemisphereLight(0x6a7a90, 0x2a2218, 0.42));
 
-        var spot = new THREE.SpotLight(theme.warm, 2.2, 80, 0.45, 0.35, 1);
+        var spot = new THREE.SpotLight(theme.warm, 3.2, 90, 0.42, 0.32, 1);
         spot.position.set(4, 8, 10);
         spot.target.position.set(0, -2, -20);
         spot.castShadow = true;
         scene.add(spot);
         scene.add(spot.target);
 
-        var fill = new THREE.PointLight(theme.cool, 0.85, 45);
+        var fill = new THREE.PointLight(theme.cool, 1.15, 50);
         fill.position.set(-4, 2, -6);
         scene.add(fill);
 
         var tunnel = new THREE.Mesh(
             new THREE.CylinderGeometry(5.2, 5.2, 90, 48, 1, true),
             new THREE.MeshStandardMaterial({
-                color: 0x252b38,
-                roughness: 0.92,
-                metalness: 0.08,
+                color: 0x3a4558,
+                roughness: 0.88,
+                metalness: 0.12,
+                emissive: 0x151a28,
+                emissiveIntensity: 0.35,
                 side: THREE.BackSide,
                 flatShading: false
             })
@@ -139,10 +143,10 @@ define([], function() {
         }
         dripGeom.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
         var dripMat = new THREE.PointsMaterial({
-            color: 0x7ec8ff,
-            size: 0.055,
+            color: 0x5a9cc8,
+            size: 0.04,
             transparent: true,
-            opacity: 0.5,
+            opacity: 0.28,
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
@@ -173,10 +177,10 @@ define([], function() {
         }
         dustGeom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
         var dustMat = new THREE.PointsMaterial({
-            color: 0x9aabbc,
-            size: 0.06,
+            color: 0x7a8a9c,
+            size: 0.04,
             transparent: true,
-            opacity: 0.45,
+            opacity: 0.22,
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });

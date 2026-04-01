@@ -76,6 +76,9 @@ $bootstrap = [
         'flowReset' => $str('lab_flow_reset'),
         'thesisHint' => $str('lab_thesis_hint'),
         'thesisCheck' => $str('lab_thesis_check'),
+        'whatToDo' => $str('lab_what_to_do'),
+        'fullscreen' => $str('lab_fullscreen'),
+        'exitFullscreen' => $str('lab_exit_fullscreen'),
     ],
 ];
 

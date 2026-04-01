@@ -45,8 +45,11 @@ define([], function() {
 
     /**
      * Envuelve el área de simulación con cabecera institucional y metadatos.
+     *
+     * @param {Object} strings textos UI (whatToDo, fullscreen, exitFullscreen)
      */
-    function buildSimulationShell(container, activity, activityKey) {
+    function buildSimulationShell(container, activity, activityKey, strings) {
+        strings = strings || {};
         var theme = themeFromKey(activityKey);
         container.classList.add('ml-pro');
         container.style.setProperty('--ml-accent-a', theme.accentA);
@@ -66,6 +69,11 @@ define([], function() {
             '<span class="ml-pro__badge">' + esc(activityKey || '') + '</span>' +
             '<span class="ml-pro__badge ml-pro__badge--dim">' + esc(activity.archetype || '') + '</span>' +
             '</div></header>' +
+            '<div class="ml-pro__toolbar">' +
+            '<p class="ml-pro__what" id="ml-pro-what">' + esc(strings.whatToDo || '') + '</p>' +
+            '<button type="button" class="ml-btn ml-btn--sec ml-pro__fs" id="ml-pro-fs" ' +
+            'aria-label="' + esc(strings.fullscreen || '') + '">' + esc(strings.fullscreen || '') + '</button>' +
+            '</div>' +
             '<div class="ml-pro__body">' +
             '<div class="ml-pro__viewport" id="ml-pro-viewport"></div>' +
             '<aside class="ml-pro__aside" id="ml-pro-aside"></aside>' +
@@ -74,10 +82,28 @@ define([], function() {
 
         container.appendChild(shell);
 
+        var fsBtn = shell.querySelector('#ml-pro-fs');
+        var fsLabelEnter = strings.fullscreen || '';
+        var fsLabelExit = strings.exitFullscreen || fsLabelEnter;
+        function syncFsLabel() {
+            var on = document.fullscreenElement === shell;
+            fsBtn.textContent = on ? fsLabelExit : fsLabelEnter;
+            fsBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        }
+        fsBtn.addEventListener('click', function() {
+            if (!document.fullscreenElement) {
+                shell.requestFullscreen().catch(function() {});
+            } else {
+                document.exitFullscreen();
+            }
+        });
+        document.addEventListener('fullscreenchange', syncFsLabel);
+
         return {
             viewport: shell.querySelector('#ml-pro-viewport'),
             aside: shell.querySelector('#ml-pro-aside'),
-            theme: theme
+            theme: theme,
+            shell: shell
         };
     }
 

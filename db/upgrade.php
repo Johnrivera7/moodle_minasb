@@ -67,5 +67,10 @@ function xmldb_minaslab_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026033107, 'minaslab');
     }
 
+    if ($oldversion < 2026033108) {
+        // UI: instrucciones, pantalla completa; túnel 3D más visible.
+        upgrade_mod_savepoint(true, 2026033108, 'minaslab');
+    }
+
     return true;
 }

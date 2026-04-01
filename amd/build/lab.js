@@ -65,7 +65,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d'], function($, l
 
     function openShell(container, activity, cfg) {
         container.innerHTML = '';
-        return labui.buildSimulationShell(container, activity, cfg.activityKey || '');
+        return labui.buildSimulationShell(container, activity, cfg.activityKey || '', cfg.strings || {});
     }
 
     function mountTunnel3d(container, activity, t, cfg) {
