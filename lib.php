@@ -87,14 +87,15 @@ function minaslab_update_instance($data, $mform = null): bool {
     if (property_exists($data, 'intro_editor') && $data->intro_editor !== null) {
         $data = file_postupdate_standard_editor($data, 'intro', $opts, $context, 'mod_minaslab', 'intro', 0);
     } else {
-        $data->intro = $old->intro;
-        $data->introformat = $old->introformat;
+        // get_record puede omitir claves null; evitar lectura de propiedades indefinidas (PHP 8.2+).
+        $data->intro = (isset($old->intro) && $old->intro !== null) ? $old->intro : '';
+        $data->introformat = isset($old->introformat) ? (int) $old->introformat : FORMAT_HTML;
     }
 
-    if (!property_exists($data, 'intro') || $data->intro === null) {
+    if (!isset($data->intro) || $data->intro === null) {
         $data->intro = '';
     }
-    if (!property_exists($data, 'introformat') || $data->introformat === null) {
+    if (!isset($data->introformat) || $data->introformat === null) {
         $data->introformat = FORMAT_HTML;
     }
 
