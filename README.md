@@ -9,6 +9,12 @@ Plugin de actividad para **Moodle 4.5+**: laboratorio virtual de Ingeniería en 
 3. Añadir la actividad desde un curso: **Añadir actividad o recurso → MinasLab**.
 4. Tras cada actualización del plugin: **Administración del sitio → Desarrollo → Purgar todas las cachés** (sobre todo si cambian módulos AMD o cadenas de idioma).
 
+### Si la consola muestra error en `three.min.js` o “WebGL no disponible”
+
+El motor 3D se carga desde `mod/minaslab/js/three.min.js`. Ese archivo debe ser el **bundle minificado oficial** de Three.js (incluye la primera línea con `console.warn` sobre deprecación y el bloque UMD completo). Si el archivo se **recorta**, se **corrompe** al copiar o falta la primera línea, el navegador puede lanzar `SyntaxError` (p. ej. en la línea del `function(t,e){...}`) y `window.THREE` no existirá.
+
+**Solución:** sustituye `js/three.min.js` por una copía íntegra (por ejemplo desde `three@0.159.0` en npm/jsDelivr: `build/three.min.js`), vuelve a subir el plugin y purga cachés. Los avisos de Moodle sobre *drawer region* no están causados por MinasLab.
+
 ## Interacción y escenas 3D
 
 - **Navegación**: órbita con arrastre (ratón o trackpad), zoom con rueda; en trackpad suele funcionar pellizco o **Ctrl + desplazamiento** (comportamiento similar a “zoom con Ctrl” en navegadores).

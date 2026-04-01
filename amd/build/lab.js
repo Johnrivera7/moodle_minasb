@@ -26,11 +26,25 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
                 window.define = prevDefine;
             }
             THREE = window.THREE;
+            if (!THREE) {
+                // Archivo cargó pero no expuso THREE (p. ej. three.min.js corrupto o recortado).
+                if (typeof window.console !== 'undefined' && window.console.error) {
+                    window.console.error(
+                        'MinasLab: three.min.js no definió window.THREE. ' +
+                        'Sube el archivo completo desde mod/minaslab/js/ (build oficial de three.js).'
+                    );
+                }
+            }
             done();
         };
         s.onerror = function() {
             if (prevDefine) {
                 window.define = prevDefine;
+            }
+            if (typeof window.console !== 'undefined' && window.console.error) {
+                window.console.error(
+                    'MinasLab: no se pudo cargar three.min.js (404, red o ruta incorrecta).'
+                );
             }
             done();
         };
