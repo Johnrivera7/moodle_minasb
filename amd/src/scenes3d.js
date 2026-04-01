@@ -462,25 +462,74 @@ define([], function() {
      * Textura canvas para carteles DS 132 / faena subterránea.
      */
     function tunnelSignTexture(THREE, lines, bgHex, fgHex) {
-        var cw = 512;
-        var ch = 220;
+        var cw = 640;
+        var ch = 280;
         var cv = document.createElement('canvas');
         cv.width = cw;
         cv.height = ch;
         var cx = cv.getContext('2d');
         cx.fillStyle = bgHex || '#2a2418';
         cx.fillRect(0, 0, cw, ch);
-        cx.strokeStyle = '#c9a227';
-        cx.lineWidth = 6;
-        cx.strokeRect(10, 10, cw - 20, ch - 20);
-        cx.fillStyle = fgHex || '#f0e8d8';
-        cx.font = 'bold 26px sans-serif';
+        cx.strokeStyle = '#e8c040';
+        cx.lineWidth = 8;
+        cx.strokeRect(12, 12, cw - 24, ch - 24);
+        cx.font = 'bold 32px system-ui, "Segoe UI", sans-serif';
         cx.textAlign = 'center';
+        cx.textBaseline = 'middle';
         var ly;
+        var fg = fgHex || '#f7f2e8';
         for (ly = 0; ly < lines.length; ly++) {
-            cx.fillText(lines[ly], cw / 2, 58 + ly * 44);
+            var ty = 72 + ly * 72;
+            cx.strokeStyle = 'rgba(0,0,0,0.75)';
+            cx.lineWidth = 5;
+            cx.strokeText(lines[ly], cw / 2, ty);
+            cx.fillStyle = fg;
+            cx.fillText(lines[ly], cw / 2, ty);
         }
         var tex = new THREE.CanvasTexture(cv);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.minFilter = THREE.LinearFilter;
+        tex.generateMipmaps = false;
+        return tex;
+    }
+
+    /**
+     * Textura procedural tipo roca / macizo para paredes de galería.
+     */
+    function tunnelRockTexture(THREE) {
+        var w = 512;
+        var h = 512;
+        var cv = document.createElement('canvas');
+        cv.width = w;
+        cv.height = h;
+        var cx = cv.getContext('2d');
+        var g = cx.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, '#4a4540');
+        g.addColorStop(0.45, '#35322e');
+        g.addColorStop(1, '#2a2824');
+        cx.fillStyle = g;
+        cx.fillRect(0, 0, w, h);
+        var i;
+        for (i = 0; i < 1400; i++) {
+            cx.fillStyle = 'rgba(0,0,0,' + (0.03 + Math.random() * 0.14) + ')';
+            cx.fillRect(Math.random() * w, Math.random() * h, 1 + Math.random() * 3, 1 + Math.random() * 3);
+        }
+        for (i = 0; i < 500; i++) {
+            cx.fillStyle = 'rgba(255,250,240,' + (0.015 + Math.random() * 0.04) + ')';
+            cx.fillRect(Math.random() * w, Math.random() * h, 1, 1);
+        }
+        for (i = 0; i < 55; i++) {
+            cx.strokeStyle = 'rgba(20,18,16,' + (0.12 + Math.random() * 0.25) + ')';
+            cx.lineWidth = 0.5 + Math.random() * 2;
+            cx.beginPath();
+            cx.moveTo(Math.random() * w, Math.random() * h);
+            cx.lineTo(Math.random() * w, Math.random() * h);
+            cx.stroke();
+        }
+        var tex = new THREE.CanvasTexture(cv);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(3.5, 20);
         tex.colorSpace = THREE.SRGBColorSpace;
         return tex;
     }
@@ -498,8 +547,8 @@ define([], function() {
         var h = dim0.h;
 
         var scene = new THREE.Scene();
-        var fogCol = 0x1a1d24;
-        scene.fog = new THREE.Fog(fogCol, 6, 52);
+        var fogCol = 0x2e343d;
+        scene.fog = new THREE.Fog(fogCol, 3.5, 68);
         scene.background = new THREE.Color(fogCol);
 
         var camera = new THREE.PerspectiveCamera(50, w / h, 0.06, 220);
@@ -515,33 +564,36 @@ define([], function() {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.08;
+        renderer.toneMappingExposure = 1.24;
+        if (renderer.outputColorSpace !== undefined) {
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
+        }
         renderer.domElement.style.display = 'block';
         host.appendChild(renderer.domElement);
 
-        /* Poca luz ambiente: la galería se lee con lámparas y casco. */
-        var amb = new THREE.AmbientLight(0x5a6270, 0.28);
+        /* Base + techo rocoso visibles (no “vacío” oscuro). */
+        var amb = new THREE.AmbientLight(0x8a9098, 0.42);
         scene.add(amb);
-        scene.add(new THREE.HemisphereLight(0x4a5568, 0x2a2218, 0.22));
+        scene.add(new THREE.HemisphereLight(0x7a8594, 0x4a3e34, 0.48));
 
-        /* Sin foco cenital fuerte (evitaba sensación “plano superior”). */
-        var spot = new THREE.SpotLight(theme.warm, 0.85, 120, 0.55, 0.5, 1);
-        spot.position.set(0.5, 5.5, 12);
-        spot.target.position.set(0, -1, -28);
+        /* Luz de boca de galería hacia el interior. */
+        var spot = new THREE.SpotLight(0xffd8b0, 2.4, 95, 0.62, 0.45, 1);
+        spot.position.set(0, 3.2, 14);
+        spot.target.position.set(0, -1.2, -22);
         spot.castShadow = false;
         scene.add(spot);
         scene.add(spot.target);
 
-        var fill = new THREE.PointLight(0x7088a0, 0.55, 40);
-        fill.position.set(-2.5, 0.5, -4);
+        var fill = new THREE.PointLight(0xa8b8c8, 0.85, 55);
+        fill.position.set(0, 1.2, 2);
         scene.add(fill);
 
-        /* Luz tipo lámpara de casco: protagonista en vista desde adentro. */
-        var headlamp = new THREE.SpotLight(0xffe8c8, 8.2, 48, 0.68, 0.42, 1);
-        headlamp.position.set(0, 0.1, 0.18);
+        /* Lámpara de casco: ilumina paredes y señales al mirar. */
+        var headlamp = new THREE.SpotLight(0xfff2e0, 14, 62, 0.62, 0.35, 1);
+        headlamp.position.set(0, 0.12, 0.2);
         headlamp.castShadow = true;
         var headTarget = new THREE.Object3D();
-        headTarget.position.set(0, -0.12, -1);
+        headTarget.position.set(0, -0.1, -1);
         camera.add(headlamp);
         camera.add(headTarget);
         headlamp.target = headTarget;
@@ -564,31 +616,44 @@ define([], function() {
         tunPos.needsUpdate = true;
         tunGeo.computeVertexNormals();
 
+        var rockTex = tunnelRockTexture(THREE);
+        var rockTexL = rockTex.clone();
+        rockTexL.needsUpdate = true;
+
+        /* Eje del cilindro = Z (antes rotation.z dejaba el tubo en X → “túnel transparente” al avanzar en Z). */
         var tunnelWallMat = new THREE.MeshStandardMaterial({
-            color: 0x3e424c,
-            roughness: 0.97,
-            metalness: 0.03,
-            emissive: 0x0a0c10,
-            emissiveIntensity: 0.12,
+            map: rockTex,
+            bumpMap: rockTex,
+            bumpScale: 0.22,
+            color: 0xc8c4bc,
+            roughness: 0.93,
+            metalness: 0.025,
+            emissive: 0x2a2622,
+            emissiveIntensity: 0.06,
             side: THREE.BackSide,
             flatShading: false
         });
         var tunnel = new THREE.Mesh(tunGeo, tunnelWallMat);
         tunnel.scale.set(1.32, 1, 0.7);
-        tunnel.rotation.z = Math.PI / 2;
+        tunnel.rotation.set(Math.PI / 2, 0, 0);
         tunnel.receiveShadow = true;
         scene.add(tunnel);
         var tunnelLining = new THREE.Mesh(
             new THREE.CylinderGeometry(4.95, 4.75, 87, 40, 1, true),
             new THREE.MeshStandardMaterial({
-                color: 0x252830,
-                roughness: 0.98,
+                map: rockTexL,
+                bumpMap: rockTexL,
+                bumpScale: 0.14,
+                color: 0x6a6864,
+                roughness: 0.97,
                 metalness: 0.02,
+                emissive: 0x151412,
+                emissiveIntensity: 0.04,
                 side: THREE.BackSide
             })
         );
         tunnelLining.scale.set(1.32, 1, 0.7);
-        tunnelLining.rotation.z = Math.PI / 2;
+        tunnelLining.rotation.set(Math.PI / 2, 0, 0);
         scene.add(tunnelLining);
         /* Cerchas macizas (no aros finos tipo alámbrico). */
         var ribMat = new THREE.MeshStandardMaterial({
@@ -627,20 +692,21 @@ define([], function() {
         scene.add(mouthTop);
 
         function addSignPlane(tex, x, y, z, ry, wv, hv) {
-            var sg = new THREE.Mesh(
-                new THREE.PlaneGeometry(wv || 3.2, hv || 1.35),
-                new THREE.MeshStandardMaterial({
-                    map: tex,
-                    roughness: 0.78,
-                    metalness: 0.05,
-                    emissive: 0x221a10,
-                    emissiveIntensity: 0.06,
-                    side: THREE.DoubleSide
-                })
-            );
+            var wvv = wv || 3.2;
+            var hvv = hv || 1.35;
+            var mat = new THREE.MeshBasicMaterial({
+                map: tex,
+                toneMapped: false
+            });
+            var sg = new THREE.Mesh(new THREE.PlaneGeometry(wvv, hvv), mat);
             sg.position.set(x, y, z);
             sg.rotation.y = ry;
+            sg.rotation.x = -0.06;
             scene.add(sg);
+            /* Luz local para leer el cartel sin depender solo del casco. */
+            var sl = new THREE.PointLight(0xffecd0, 1.35, 9);
+            sl.position.set(x * 0.55, y + 0.35, z + 0.4);
+            scene.add(sl);
         }
 
         addSignPlane(
@@ -685,12 +751,15 @@ define([], function() {
         flCv.width = 256;
         flCv.height = 256;
         var fx = flCv.getContext('2d');
-        fx.fillStyle = '#3a3228';
+        var fg = fx.createLinearGradient(0, 0, 256, 256);
+        fg.addColorStop(0, '#4a3d32');
+        fg.addColorStop(1, '#2e2820');
+        fx.fillStyle = fg;
         fx.fillRect(0, 0, 256, 256);
         for (var gx = 0; gx < 256; gx += 4) {
             for (var gy = 0; gy < 256; gy += 4) {
                 if ((gx + gy) % 12 === 0) {
-                    fx.fillStyle = 'rgba(0,0,0,0.08)';
+                    fx.fillStyle = 'rgba(0,0,0,0.12)';
                     fx.fillRect(gx, gy, 3, 3);
                 }
             }
@@ -751,8 +820,8 @@ define([], function() {
             new THREE.CylinderGeometry(0.04, 0.04, 78, 8),
             new THREE.MeshStandardMaterial({color: 0x2a2a2a, metalness: 0.6, roughness: 0.4})
         );
-        cable.rotation.z = Math.PI / 2;
-        cable.position.set(0, 3.5, 0);
+        cable.rotation.x = Math.PI / 2;
+        cable.position.set(0, 3.4, 0);
         scene.add(cable);
 
         /* Arcos de sostén y durmientes laterales */
@@ -793,9 +862,16 @@ define([], function() {
         /* Luces colgantes por tramo */
         var li;
         for (li = 0; li < 9; li++) {
-            var hang = new THREE.PointLight(theme.warm, 0.82, 30);
-            hang.position.set((li % 2 === 0 ? 1.9 : -1.9), 3.0, -36 + li * 8.5);
+            var hang = new THREE.PointLight(0xffc090, 1.55, 44);
+            hang.position.set((li % 2 === 0 ? 1.85 : -1.85), 2.85, -36 + li * 8.5);
             scene.add(hang);
+        }
+        /* Tira de luz bajo techo en el eje (rellena sombras entre lámparas). */
+        var strip;
+        for (strip = 0; strip < 14; strip++) {
+            var st = new THREE.PointLight(0xd8c8b8, 0.38, 24);
+            st.position.set(0, 3.12, -38 + strip * 5.6);
+            scene.add(st);
         }
 
         /* Filtración: gotas */
@@ -810,10 +886,10 @@ define([], function() {
         }
         dripGeom.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
         var dripMat = new THREE.PointsMaterial({
-            color: 0x5a9cc8,
-            size: 0.04,
+            color: 0x4a6888,
+            size: 0.028,
             transparent: true,
-            opacity: 0.28,
+            opacity: 0.14,
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
@@ -844,10 +920,10 @@ define([], function() {
         }
         dustGeom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
         var dustMat = new THREE.PointsMaterial({
-            color: 0x5c6570,
-            size: 0.022,
+            color: 0x3a4048,
+            size: 0.016,
             transparent: true,
-            opacity: 0.09,
+            opacity: 0.045,
             depthWrite: false,
             blending: THREE.NormalBlending
         });
@@ -875,9 +951,9 @@ define([], function() {
             }
             animId = requestAnimationFrame(loop);
             var tsec = (now - start) * 0.001;
-            spot.intensity = 0.72 + Math.sin(tsec * 2.1) * 0.18;
-            fill.intensity = 0.48 + Math.sin(tsec * 1.7) * 0.12;
-            headlamp.intensity = 7.2 + Math.sin(tsec * 3.1) * 0.55;
+            spot.intensity = 2.1 + Math.sin(tsec * 2.1) * 0.25;
+            fill.intensity = 0.75 + Math.sin(tsec * 1.7) * 0.12;
+            headlamp.intensity = 12.5 + Math.sin(tsec * 3.1) * 0.65;
             dust.rotation.y = tsec * 0.02;
             var positions = dust.geometry.attributes.position.array;
             for (i = 0; i < dustCount; i++) {
