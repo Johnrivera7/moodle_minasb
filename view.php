@@ -43,12 +43,19 @@ $str = function(string $key) {
 };
 
 // Payload AMD &lt; 1 KB: el resto va en JSON embebido (mustache) para evitar aviso del core.
+$versionfilecontent = @file_get_contents(__DIR__ . '/version.php') ?: '';
+$assetversion = 0;
+if (preg_match('/\$plugin->version\s*=\s*(\d+)/', $versionfilecontent, $mv)) {
+    $assetversion = (int) $mv[1];
+}
+
 $amdinit = [
     'wwwroot' => $CFG->wwwroot,
     'cmid' => $cm->id,
     'sesskey' => sesskey(),
     'grademax' => (float) $minaslab->grade,
     'activityKey' => $minaslab->activity_key,
+    'assetVersion' => $assetversion,
 ];
 
 $bootstrap = [

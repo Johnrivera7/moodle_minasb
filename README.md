@@ -11,9 +11,9 @@ Plugin de actividad para **Moodle 4.5+**: laboratorio virtual de Ingeniería en 
 
 ### Si la consola muestra error en `three.min.js` o “WebGL no disponible”
 
-El motor 3D se carga desde `mod/minaslab/js/three.min.js`. Ese archivo debe ser el **bundle minificado oficial** de Three.js (incluye la primera línea con `console.warn` sobre deprecación y el bloque UMD completo). Si el archivo se **recorta**, se **corrompe** al copiar o falta la primera línea, el navegador puede lanzar `SyntaxError` (p. ej. en la línea del `function(t,e){...}`) y `window.THREE` no existirá.
+El motor 3D se carga desde `mod/minaslab/js/three.min.js`. El bundle oficial de Three (r150+) incluye una **primera línea** `console.warn(...),` necesaria para que el UMD sea válido. Si falta (archivo recortado), aparece `SyntaxError: Function statements require a function name` y no existe `window.THREE`.
 
-**Solución:** sustituye `js/three.min.js` por una copía íntegra (por ejemplo desde `three@0.159.0` en npm/jsDelivr: `build/three.min.js`), vuelve a subir el plugin y purga cachés. Los avisos de Moodle sobre *drawer region* no están causados por MinasLab.
+**Desde la versión 2026033117**, `lab.js` descarga el texto, añade esa línea si falta y ejecuta vía blob URL (suele bastar). Si sigue fallando, sustituye `js/three.min.js` por el `build/three.min.js` íntegro de `three@0.159.x` y purga cachés. Los avisos de Moodle sobre *drawer region* no vienen de MinasLab.
 
 ## Interacción y escenas 3D
 

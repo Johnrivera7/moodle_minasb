@@ -4,51 +4,120 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
 
     var THREE = null;
 
-    function ensureThree(wwwroot, done) {
+    /**
+     * El UMD de three r150+ exige una primera línea `console.warn(...),` para que el bundle
+     * sea una expresión válida. Si el archivo en el servidor está recortado (solo desde /**),
+     * el navegador lanza SyntaxError y no existe window.THREE. Aquí se repara el texto antes de ejecutarlo.
+     */
+    function fixThreeBundleText(code) {
+        if (!code || typeof code !== 'string') {
+            return code;
+        }
+        if (code.charCodeAt(0) === 0xFEFF) {
+            code = code.slice(1);
+        }
+        var ts = code.trimStart();
+        if (ts.indexOf('console.warn') !== 0) {
+            code = 'console.warn(\'three.js (MinasLab bundle)\'),\n' + code;
+        }
+        return code;
+    }
+
+    function ensureThree(cfg, done) {
+        var wwwroot = cfg && cfg.wwwroot ? cfg.wwwroot : '';
+        var assetV = cfg && cfg.assetVersion != null ? String(cfg.assetVersion) : '1';
         if (window.THREE) {
             THREE = window.THREE;
             return done();
         }
-        var s = document.createElement('script');
-        s.src = wwwroot + '/mod/minaslab/js/three.min.js';
-        s.async = false;
-        // Three.js r150+ (UMD) registra define() anónimo y choca con RequireJS de Moodle.
+        var baseUrl = wwwroot + '/mod/minaslab/js/three.min.js';
+        var url = baseUrl + '?v=' + encodeURIComponent(assetV);
         var prevDefine = typeof window.define === 'function' ? window.define : undefined;
-        if (prevDefine) {
-            try {
-                delete window.define;
-            } catch (e) {
-                window.define = undefined;
+
+        function restoreDefine() {
+            if (prevDefine) {
+                window.define = prevDefine;
             }
         }
-        s.onload = function() {
+
+        function stripAmdDefineForRun() {
             if (prevDefine) {
-                window.define = prevDefine;
-            }
-            THREE = window.THREE;
-            if (!THREE) {
-                // Archivo cargó pero no expuso THREE (p. ej. three.min.js corrupto o recortado).
-                if (typeof window.console !== 'undefined' && window.console.error) {
-                    window.console.error(
-                        'MinasLab: three.min.js no definió window.THREE. ' +
-                        'Sube el archivo completo desde mod/minaslab/js/ (build oficial de three.js).'
-                    );
+                try {
+                    delete window.define;
+                } catch (e) {
+                    window.define = undefined;
                 }
             }
-            done();
-        };
-        s.onerror = function() {
-            if (prevDefine) {
-                window.define = prevDefine;
-            }
-            if (typeof window.console !== 'undefined' && window.console.error) {
+        }
+
+        function finishLoad() {
+            THREE = window.THREE;
+            if (!THREE && typeof window.console !== 'undefined' && window.console.error) {
                 window.console.error(
-                    'MinasLab: no se pudo cargar three.min.js (404, red o ruta incorrecta).'
+                    'MinasLab: tras cargar three.js, window.THREE sigue vacío. ' +
+                    'Comprueba mod/minaslab/js/three.min.js y la consola por errores de sintaxis.'
                 );
             }
             done();
-        };
-        document.head.appendChild(s);
+        }
+
+        function injectScriptFromCode(code) {
+            code = fixThreeBundleText(code);
+            var blob = new Blob([code], {type: 'application/javascript'});
+            var blobUrl = URL.createObjectURL(blob);
+            var s = document.createElement('script');
+            s.src = blobUrl;
+            s.async = false;
+            s.onload = function() {
+                URL.revokeObjectURL(blobUrl);
+                restoreDefine();
+                finishLoad();
+            };
+            s.onerror = function() {
+                URL.revokeObjectURL(blobUrl);
+                restoreDefine();
+                loadScriptTagDirect();
+            };
+            stripAmdDefineForRun();
+            document.head.appendChild(s);
+        }
+
+        function loadScriptTagDirect() {
+            var s = document.createElement('script');
+            s.src = url;
+            s.async = false;
+            s.onload = function() {
+                restoreDefine();
+                finishLoad();
+            };
+            s.onerror = function() {
+                restoreDefine();
+                if (typeof window.console !== 'undefined' && window.console.error) {
+                    window.console.error('MinasLab: no se pudo cargar three.min.js (404 o red).');
+                }
+                done();
+            };
+            stripAmdDefineForRun();
+            document.head.appendChild(s);
+        }
+
+        if (typeof window.fetch === 'function') {
+            window.fetch(url, {credentials: 'same-origin', cache: 'no-store'})
+                .then(function(r) {
+                    if (!r.ok) {
+                        throw new Error('HTTP ' + r.status);
+                    }
+                    return r.text();
+                })
+                .then(function(text) {
+                    injectScriptFromCode(text);
+                })
+                .catch(function() {
+                    loadScriptTagDirect();
+                });
+        } else {
+            loadScriptTagDirect();
+        }
     }
 
     function esc(s) {
@@ -856,7 +925,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
 
         var need3d = ['tunnel_3d', 'pit_3d', 'vent_shaft'].indexOf(act.archetype) >= 0;
         if (need3d) {
-            ensureThree(cfg.wwwroot || '', afterRoute);
+            ensureThree(cfg, afterRoute);
         } else {
             afterRoute();
         }
