@@ -115,7 +115,7 @@ $string['office_sensitivity_title'] = 'Economic sensitivity (indicative NPV)';
 $string['office_sensitivity_blurb'] = 'Adjust investment, discount rate, and horizon to see the effect on NPV in this teaching model (decision blocks similar to pre-feasibility studies).';
 $string['english_hud_prompt'] = 'Radio briefing — complete the guided practice on the right (C5 technical communication).';
 $string['scene_legend_algebra'] = '3D: blast face with drill holes; frame = 2×2 charge matrix. Not a rail tunnel.';
-$string['scene_legend_tunnel'] = '3D: elliptical gallery with rails, sets, access portal and signage (DS 132 / underground operations).';
+$string['scene_legend_tunnel'] = '3D: interior gallery view (orbit limited, not bird\'s-eye); rails, sets, portal mouth, entry arrows and cap-lamp lighting; DS N° 132-style signs (PPE, evacuation, ventilation).';
 $string['scene_legend_pit'] = '3D: open pit (technical-style view) — blue lines = benches/berms; dark strip = ramp; outer contours = terrain; equipment on levels.';
 $string['scene_legend_pit_berm'] = 'Reference berm width (step 1): ## m.';
 $string['scene_legend_pit_cycle'] = 'Open-pit cycle: haul trucks on a spiral ramp, drills, excavator and waste dump. Use «Stages» to focus each phase. Illustrative scale.';

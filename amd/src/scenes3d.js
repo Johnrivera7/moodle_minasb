@@ -360,7 +360,34 @@ define([], function() {
     }
 
     /**
-     * Túnel subterráneo: galería con rieles, polvo, luces móviles, cableado.
+     * Textura canvas para carteles DS 132 / faena subterránea.
+     */
+    function tunnelSignTexture(THREE, lines, bgHex, fgHex) {
+        var cw = 512;
+        var ch = 220;
+        var cv = document.createElement('canvas');
+        cv.width = cw;
+        cv.height = ch;
+        var cx = cv.getContext('2d');
+        cx.fillStyle = bgHex || '#2a2418';
+        cx.fillRect(0, 0, cw, ch);
+        cx.strokeStyle = '#c9a227';
+        cx.lineWidth = 6;
+        cx.strokeRect(10, 10, cw - 20, ch - 20);
+        cx.fillStyle = fgHex || '#f0e8d8';
+        cx.font = 'bold 26px sans-serif';
+        cx.textAlign = 'center';
+        var ly;
+        for (ly = 0; ly < lines.length; ly++) {
+            cx.fillText(lines[ly], cw / 2, 58 + ly * 44);
+        }
+        var tex = new THREE.CanvasTexture(cv);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+    }
+
+    /**
+     * Túnel subterráneo: vista interior, señalética DS 132, flechas de ingreso, ambiente rústico.
      */
     function mountTunnel(viewport, activity, theme, THREE) {
         if (activity && activity.subject_slug === 'algebra') {
@@ -372,13 +399,11 @@ define([], function() {
         var h = dim0.h;
 
         var scene = new THREE.Scene();
-        /* Niebla lineal + fondo más claro: legibilidad de paredes, rieles y suelo (no “universo”). */
-        var fogCol = 0x2d3848;
-        scene.fog = new THREE.Fog(fogCol, 14, 88);
+        var fogCol = 0x1a1d24;
+        scene.fog = new THREE.Fog(fogCol, 6, 52);
         scene.background = new THREE.Color(fogCol);
 
-        var camera = new THREE.PerspectiveCamera(52, w / h, 0.1, 220);
-        camera.position.set(0, 2.2, 14);
+        var camera = new THREE.PerspectiveCamera(58, w / h, 0.08, 220);
         scene.add(camera);
 
         var renderer = new THREE.WebGLRenderer({
@@ -391,91 +416,214 @@ define([], function() {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.22;
+        renderer.toneMappingExposure = 1.08;
         renderer.domElement.style.display = 'block';
         host.appendChild(renderer.domElement);
 
-        var amb = new THREE.AmbientLight(0xa0b0c8, 0.62);
+        /* Poca luz ambiente: la galería se lee con lámparas y casco. */
+        var amb = new THREE.AmbientLight(0x5a6270, 0.28);
         scene.add(amb);
-        scene.add(new THREE.HemisphereLight(0x8899aa, 0x3a3020, 0.5));
+        scene.add(new THREE.HemisphereLight(0x4a5568, 0x2a2218, 0.22));
 
-        var spot = new THREE.SpotLight(theme.warm, 4.2, 90, 0.42, 0.32, 1);
-        spot.position.set(4, 8, 10);
-        spot.target.position.set(0, -2, -20);
-        spot.castShadow = true;
+        /* Sin foco cenital fuerte (evitaba sensación “plano superior”). */
+        var spot = new THREE.SpotLight(theme.warm, 0.85, 120, 0.55, 0.5, 1);
+        spot.position.set(0.5, 5.5, 12);
+        spot.target.position.set(0, -1, -28);
+        spot.castShadow = false;
         scene.add(spot);
         scene.add(spot.target);
 
-        var fill = new THREE.PointLight(theme.cool, 1.45, 50);
-        fill.position.set(-4, 2, -6);
+        var fill = new THREE.PointLight(0x7088a0, 0.55, 40);
+        fill.position.set(-2.5, 0.5, -4);
         scene.add(fill);
 
-        /* Luz tipo lámpara de casco: ilumina el frente al avanzar la cámara. */
-        var headlamp = new THREE.SpotLight(0xfff4e0, 5.5, 42, 0.72, 0.38, 1);
-        headlamp.position.set(0, 0.12, 0.22);
+        /* Luz tipo lámpara de casco: protagonista en vista desde adentro. */
+        var headlamp = new THREE.SpotLight(0xffe8c8, 8.2, 48, 0.68, 0.42, 1);
+        headlamp.position.set(0, 0.1, 0.18);
         headlamp.castShadow = true;
         var headTarget = new THREE.Object3D();
-        headTarget.position.set(0, -0.18, -1);
+        headTarget.position.set(0, -0.12, -1);
         camera.add(headlamp);
         camera.add(headTarget);
         headlamp.target = headTarget;
 
-        /* Galería: sección elíptica (no tubo circular) + muro rocoso interior. */
+        /* Galería: sección elíptica + irregularidad en radio (aspecto roca tallada). */
+        var tunGeo = new THREE.CylinderGeometry(5.6, 5.35, 90, 48, 6, true);
+        var tunPos = tunGeo.attributes.position;
+        var vi;
+        for (vi = 0; vi < tunPos.count; vi++) {
+            var vx = tunPos.getX(vi);
+            var vy = tunPos.getY(vi);
+            var vz = tunPos.getZ(vi);
+            var ang = Math.atan2(vz, vx);
+            var hor = Math.sqrt(vx * vx + vz * vz) || 0.001;
+            var bump = 0.22 * Math.sin(ang * 9 + vy * 0.11) + 0.14 * Math.sin(vy * 0.31 + ang * 3);
+            var s = (hor + bump) / hor;
+            tunPos.setX(vi, vx * s);
+            tunPos.setZ(vi, vz * s);
+        }
+        tunPos.needsUpdate = true;
+        tunGeo.computeVertexNormals();
+
         var tunnelWallMat = new THREE.MeshStandardMaterial({
-            color: 0x4d5562,
-            roughness: 0.92,
-            metalness: 0.06,
-            emissive: 0x151a22,
-            emissiveIntensity: 0.35,
+            color: 0x3e424c,
+            roughness: 0.97,
+            metalness: 0.03,
+            emissive: 0x0a0c10,
+            emissiveIntensity: 0.12,
             side: THREE.BackSide,
             flatShading: false
         });
-        var tunnel = new THREE.Mesh(
-            new THREE.CylinderGeometry(5.6, 5.35, 90, 36, 1, true),
-            tunnelWallMat
-        );
+        var tunnel = new THREE.Mesh(tunGeo, tunnelWallMat);
         tunnel.scale.set(1.32, 1, 0.7);
         tunnel.rotation.z = Math.PI / 2;
         tunnel.receiveShadow = true;
         scene.add(tunnel);
         var tunnelLining = new THREE.Mesh(
-            new THREE.CylinderGeometry(4.95, 4.75, 87, 32, 1, true),
+            new THREE.CylinderGeometry(4.95, 4.75, 87, 40, 1, true),
             new THREE.MeshStandardMaterial({
-                color: 0x2e323c,
-                roughness: 0.96,
-                metalness: 0.04,
+                color: 0x252830,
+                roughness: 0.98,
+                metalness: 0.02,
                 side: THREE.BackSide
             })
         );
         tunnelLining.scale.set(1.32, 1, 0.7);
         tunnelLining.rotation.z = Math.PI / 2;
         scene.add(tunnelLining);
-        var ribMat = new THREE.MeshStandardMaterial({color: 0x3a3545, roughness: 0.88, metalness: 0.2});
+        /* Cerchas macizas (no aros finos tipo alámbrico). */
+        var ribMat = new THREE.MeshStandardMaterial({
+            color: 0x3d3530,
+            roughness: 0.91,
+            metalness: 0.12,
+            flatShading: false
+        });
         var ribZ;
         for (ribZ = -36; ribZ < 36; ribZ += 7) {
-            var rib = new THREE.Mesh(new THREE.TorusGeometry(4.25, 0.12, 8, 24), ribMat);
+            var rib = new THREE.Mesh(new THREE.TorusGeometry(4.35, 0.24, 14, 56), ribMat);
             rib.scale.set(1.32, 0.7, 1);
             rib.position.z = ribZ;
             scene.add(rib);
         }
+        /* Fondo interior: frente de roca al fondo de la galería. */
         var portalF = new THREE.Mesh(
             new THREE.BoxGeometry(9.2, 7.2, 0.45),
-            new THREE.MeshStandardMaterial({color: 0x353842, roughness: 0.9, metalness: 0.15})
+            new THREE.MeshStandardMaterial({color: 0x2a2824, roughness: 0.94, metalness: 0.08})
         );
         portalF.position.set(0, 0.5, -41);
         portalF.rotation.x = 0.06;
         scene.add(portalF);
-        var signDs = new THREE.Mesh(
-            new THREE.BoxGeometry(2.8, 1.1, 0.06),
-            new THREE.MeshStandardMaterial({color: 0xe8c040, roughness: 0.55, emissive: 0x2a2010, emissiveIntensity: 0.15})
+        /* Boca de acceso: muros laterales de roca — desde fuera no se “ve” el interior; desde adentro, túnel acotado. */
+        var mouthMat = new THREE.MeshStandardMaterial({color: 0x2c2620, roughness: 0.95, metalness: 0.04});
+        var mouthL = new THREE.Mesh(new THREE.BoxGeometry(6, 9, 1.2), mouthMat);
+        mouthL.position.set(-6.2, 0.8, 14.5);
+        mouthL.rotation.y = 0.12;
+        scene.add(mouthL);
+        var mouthR = new THREE.Mesh(new THREE.BoxGeometry(6, 9, 1.2), mouthMat);
+        mouthR.position.set(6.2, 0.8, 14.5);
+        mouthR.rotation.y = -0.12;
+        scene.add(mouthR);
+        var mouthTop = new THREE.Mesh(new THREE.BoxGeometry(14, 3.5, 5), mouthMat);
+        mouthTop.position.set(0, 5.2, 15.2);
+        scene.add(mouthTop);
+
+        function addSignPlane(tex, x, y, z, ry, wv, hv) {
+            var sg = new THREE.Mesh(
+                new THREE.PlaneGeometry(wv || 3.2, hv || 1.35),
+                new THREE.MeshStandardMaterial({
+                    map: tex,
+                    roughness: 0.78,
+                    metalness: 0.05,
+                    emissive: 0x221a10,
+                    emissiveIntensity: 0.06,
+                    side: THREE.DoubleSide
+                })
+            );
+            sg.position.set(x, y, z);
+            sg.rotation.y = ry;
+            scene.add(sg);
+        }
+
+        addSignPlane(
+            tunnelSignTexture(THREE, ['DS N° 132', 'Seguridad en faenas mineras'], '#3d3518', '#f2ead8'),
+            -3.55,
+            0.85,
+            6,
+            Math.PI / 2 - 0.05,
+            3.4,
+            1.4
         );
-        signDs.position.set(2.2, 1.2, -40.2);
-        signDs.rotation.y = -0.35;
-        scene.add(signDs);
+        addSignPlane(
+            tunnelSignTexture(THREE, ['EPP obligatorio', 'casco — lámpara — botas'], '#1e3d28', '#d8f0d8'),
+            3.52,
+            0.75,
+            2,
+            -Math.PI / 2 + 0.05,
+            3.5,
+            1.45
+        );
+        addSignPlane(
+            tunnelSignTexture(THREE, ['Evacuación', '→ frente de trabajo'], '#4a2a18', '#ffe8c8'),
+            -3.48,
+            0.7,
+            -4,
+            Math.PI / 2 - 0.04,
+            3.3,
+            1.35
+        );
+        addSignPlane(
+            tunnelSignTexture(THREE, ['Ventilación auxiliar', 'Prohibido fumar / fuentes de ignición'], '#2a2a38', '#e0e8ff'),
+            3.45,
+            1.0,
+            -14,
+            -Math.PI / 2 + 0.06,
+            3.6,
+            1.5
+        );
+
+        /* Suelo: textura con flechas hacia el frente (eje -Z de la galería). */
+        var flCv = document.createElement('canvas');
+        flCv.width = 256;
+        flCv.height = 256;
+        var fx = flCv.getContext('2d');
+        fx.fillStyle = '#3a3228';
+        fx.fillRect(0, 0, 256, 256);
+        for (var gx = 0; gx < 256; gx += 4) {
+            for (var gy = 0; gy < 256; gy += 4) {
+                if ((gx + gy) % 12 === 0) {
+                    fx.fillStyle = 'rgba(0,0,0,0.08)';
+                    fx.fillRect(gx, gy, 3, 3);
+                }
+            }
+        }
+        fx.fillStyle = '#c8b030';
+        fx.strokeStyle = '#a08020';
+        fx.lineWidth = 3;
+        fx.beginPath();
+        fx.moveTo(128, 28);
+        fx.lineTo(88, 118);
+        fx.lineTo(108, 118);
+        fx.lineTo(108, 228);
+        fx.lineTo(148, 228);
+        fx.lineTo(148, 118);
+        fx.lineTo(168, 118);
+        fx.closePath();
+        fx.fill();
+        fx.stroke();
+        var floorTex = new THREE.CanvasTexture(flCv);
+        floorTex.wrapS = THREE.RepeatWrapping;
+        floorTex.wrapT = THREE.RepeatWrapping;
+        floorTex.repeat.set(1.2, 16);
+        floorTex.colorSpace = THREE.SRGBColorSpace;
 
         var floor = new THREE.Mesh(
             new THREE.PlaneGeometry(11, 96),
-            new THREE.MeshStandardMaterial({color: 0x4a3f32, roughness: 0.94, metalness: 0.04})
+            new THREE.MeshStandardMaterial({
+                map: floorTex,
+                color: 0x9a9088,
+                roughness: 0.94,
+                metalness: 0.03
+            })
         );
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(0, -3.26, 0);
@@ -546,8 +694,8 @@ define([], function() {
         /* Luces colgantes por tramo */
         var li;
         for (li = 0; li < 9; li++) {
-            var hang = new THREE.PointLight(theme.warm, 0.5, 24);
-            hang.position.set((li % 2 === 0 ? 1.9 : -1.9), 3.1, -36 + li * 8.5);
+            var hang = new THREE.PointLight(theme.warm, 0.82, 30);
+            hang.position.set((li % 2 === 0 ? 1.9 : -1.9), 3.0, -36 + li * 8.5);
             scene.add(hang);
         }
 
@@ -555,10 +703,11 @@ define([], function() {
         var dripCount = 120;
         var dripGeom = new THREE.BufferGeometry();
         var dpos = new Float32Array(dripCount * 3);
-        for (i = 0; i < dripCount; i++) {
-            dpos[i * 3] = (Math.random() - 0.5) * 3.8;
-            dpos[i * 3 + 1] = Math.random() * 4;
-            dpos[i * 3 + 2] = -42 + Math.random() * 84;
+        var di;
+        for (di = 0; di < dripCount; di++) {
+            dpos[di * 3] = (Math.random() - 0.5) * 3.8;
+            dpos[di * 3 + 1] = Math.random() * 4;
+            dpos[di * 3 + 2] = -42 + Math.random() * 84;
         }
         dripGeom.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
         var dripMat = new THREE.PointsMaterial({
@@ -606,16 +755,16 @@ define([], function() {
         var dust = new THREE.Points(dustGeom, dustMat);
         scene.add(dust);
 
-        var ang = 0;
-        var tunnelLook = new THREE.Vector3(0, -0.5, -22);
+        /* Órbita centrada en el eje de marcha: vista desde dentro (no cenital). maxPhi limita “vista de pájaro”. */
+        var tunnelLook = new THREE.Vector3(0, 0.75, -7);
         var orbitTunnel = attachTrackpadOrbit(THREE, renderer.domElement, camera, tunnelLook, {
-            theta: 0.12,
-            phi: 0.28,
-            radius: 16,
-            minR: 6,
-            maxR: 48,
-            minPhi: 0.08,
-            maxPhi: 1.25
+            theta: 0,
+            phi: 0.165,
+            radius: 7.4,
+            minR: 2.4,
+            maxR: 20,
+            minPhi: 0.035,
+            maxPhi: 0.34
         });
 
         var animId;
@@ -627,10 +776,9 @@ define([], function() {
             }
             animId = requestAnimationFrame(loop);
             var tsec = (now - start) * 0.001;
-            ang += 0.0022;
-            spot.intensity = 2.2 + Math.sin(tsec * 2.1) * 0.35;
-            fill.intensity = 0.75 + Math.sin(tsec * 1.7) * 0.15;
-            headlamp.intensity = 5 + Math.sin(tsec * 3.1) * 0.4;
+            spot.intensity = 0.72 + Math.sin(tsec * 2.1) * 0.18;
+            fill.intensity = 0.48 + Math.sin(tsec * 1.7) * 0.12;
+            headlamp.intensity = 7.2 + Math.sin(tsec * 3.1) * 0.55;
             dust.rotation.y = tsec * 0.02;
             var positions = dust.geometry.attributes.position.array;
             for (i = 0; i < dustCount; i++) {
@@ -694,7 +842,7 @@ define([], function() {
     }
 
     /**
-     * Rajo a cielo abierto: plataformas, polvo, camiones, sol.
+     * Rajo / tajo abierto: plataformas, polvo, camiones, sol.
      */
     function mountPit(viewport, activity, theme, THREE) {
         var host = viewport;
@@ -1460,10 +1608,67 @@ define([], function() {
         fillLt.position.set(40, 28, -55);
         scene.add(fillLt);
 
-        /* Contenedor escalado elipse: tajo menos circular, más alineado a rajo real. */
+        /* Contenedor escalado elipse + ligera rotación: planta menos circular. */
         var pitWorld = new THREE.Group();
         pitWorld.name = 'ml-pit-cycle-world';
-        pitWorld.scale.set(1.1, 1, 0.85);
+        pitWorld.scale.set(1.14, 1, 0.78);
+        pitWorld.rotation.y = 0.14;
+
+        /**
+         * Rompe simetría circular en planta (tajo real no es anillo perfecto).
+         */
+        function deformPitWallRadiusInXZ(mesh, a1, a2) {
+            var g = mesh.geometry;
+            if (!g.attributes || !g.attributes.position) {
+                return;
+            }
+            var pos = g.attributes.position;
+            var vix;
+            for (vix = 0; vix < pos.count; vix++) {
+                var vx = pos.getX(vix);
+                var vy = pos.getY(vix);
+                var vz = pos.getZ(vix);
+                var ang = Math.atan2(vx, vz);
+                var horiz = Math.sqrt(vx * vx + vz * vz);
+                if (horiz < 0.35) {
+                    continue;
+                }
+                var n =
+                    1 +
+                    a1 * Math.sin(ang * 5 + vy * 0.12) +
+                    a2 * Math.sin(ang * 11 + vy * 0.07) +
+                    0.035 * Math.sin(ang * 19 - vy * 0.05);
+                var f = (horiz * n) / horiz;
+                pos.setX(vix, vx * f);
+                pos.setZ(vix, vz * f);
+            }
+            pos.needsUpdate = true;
+            g.computeVertexNormals();
+        }
+
+        function deformPitFloorCircle(mesh) {
+            var g = mesh.geometry;
+            if (!g.attributes || !g.attributes.position) {
+                return;
+            }
+            var pos = g.attributes.position;
+            var vix;
+            for (vix = 0; vix < pos.count; vix++) {
+                var vx = pos.getX(vix);
+                var vy = pos.getY(vix);
+                var r = Math.sqrt(vx * vx + vy * vy);
+                if (r < 0.2) {
+                    continue;
+                }
+                var ang = Math.atan2(vy, vx);
+                var n = 1 + 0.08 * Math.sin(ang * 7) + 0.05 * Math.sin(ang * 14);
+                var f = (r * n) / r;
+                pos.setX(vix, vx * f);
+                pos.setY(vix, vy * f);
+            }
+            pos.needsUpdate = true;
+            g.computeVertexNormals();
+        }
 
         var groundMat = new THREE.MeshStandardMaterial({color: 0x8f846f, roughness: 0.93, metalness: 0.03});
         var groundRing = new THREE.Mesh(new THREE.RingGeometry(PIT_RIM_R + 0.6, 220, 80, 1), groundMat);
@@ -1513,10 +1718,12 @@ define([], function() {
         var pitWall = new THREE.Mesh(pitWallGeo, pitWallMat);
         pitWall.castShadow = true;
         pitWall.receiveShadow = true;
+        deformPitWallRadiusInXZ(pitWall, 0.1, 0.055);
         pitWorld.add(pitWall);
 
         var pitFloorMat = new THREE.MeshStandardMaterial({color: 0x4a4338, roughness: 0.96, metalness: 0.04});
-        var pitFloor = new THREE.Mesh(new THREE.CircleGeometry(PIT_BOTTOM_R + 0.3, 36), pitFloorMat);
+        var pitFloor = new THREE.Mesh(new THREE.CircleGeometry(PIT_BOTTOM_R + 0.3, 42), pitFloorMat);
+        deformPitFloorCircle(pitFloor);
         pitFloor.rotation.x = -Math.PI / 2;
         pitFloor.position.y = -PIT_DEPTH - 0.28;
         pitFloor.receiveShadow = true;
@@ -1541,7 +1748,11 @@ define([], function() {
             var sgi;
             for (sgi = 0; sgi <= seg; sgi++) {
                 var a = (sgi / seg) * Math.PI * 2;
-                var wob = 1 + 0.055 * Math.sin(a * 6 + benchI * 1.05);
+                var wob =
+                    1 +
+                    0.1 * Math.sin(a * 6 + benchI * 1.05) +
+                    0.06 * Math.sin(a * 13 + benchI * 0.6) +
+                    0.035 * Math.sin(a * 19 + benchI);
                 pts.push(new THREE.Vector3(Math.cos(a) * rr * wob, yy, Math.sin(a) * rr * wob));
             }
             linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), contourMat));
@@ -1553,7 +1764,10 @@ define([], function() {
             var sg2;
             for (sg2 = 0; sg2 <= 48; sg2++) {
                 var a2 = (sg2 / 48) * Math.PI * 2;
-                var w2 = 1 + 0.04 * Math.sin(a2 * 4 + crOut * 0.08);
+                var w2 =
+                    1 +
+                    0.065 * Math.sin(a2 * 5 + crOut * 0.06) +
+                    0.04 * Math.sin(a2 * 11);
                 pts2.push(new THREE.Vector3(Math.cos(a2) * crOut * w2, 0.05, Math.sin(a2) * crOut * w2));
             }
             linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts2), contourMatTer));
@@ -2004,10 +2218,16 @@ define([], function() {
                     rt.u -= 1;
                 }
                 var p = pathCurve.pointAt(rt.u);
-                var tn = pathCurve.tangentAt(rt.u);
+                var dir = pathCurve.tangentAt(rt.u);
+                var tlen = dir.length();
+                if (tlen > 1e-10) {
+                    dir.multiplyScalar(1 / tlen);
+                } else {
+                    dir.set(0, 0, 1);
+                }
                 rt.g.position.set(p.x, p.y + 0.32, p.z);
-                var look = p.clone().add(tn);
-                rt.g.lookAt(look.x, look.y + 0.32, look.z);
+                /* Cabina hacia +Z local; alinear con tangente (evita lookAt y barrenado sobre eje). */
+                rt.g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
             });
 
             exG.rotation.y = Math.sin(camAng * 1.6) * 0.35;
