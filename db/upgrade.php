@@ -72,5 +72,10 @@ function xmldb_minaslab_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026033108, 'minaslab');
     }
 
+    if ($oldversion < 2026033109) {
+        // Texto de ayuda del selector de actividades (modulename_help).
+        upgrade_mod_savepoint(true, 2026033109, 'minaslab');
+    }
+
     return true;
 }

@@ -5,6 +5,76 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['modulename'] = 'MinasLab — Laboratorio virtual minero';
 $string['modulenameplural'] = 'Actividades MinasLab';
+$string['modulename_help'] = <<<'MINASLABHELP'
+<div style="max-width:100%;font-size:0.92em;line-height:1.5;color:#1d2125;">
+<div style="padding:10px 12px;margin-bottom:10px;border-radius:10px;border-left:5px solid #f4a23a;background:linear-gradient(90deg,rgba(244,162,58,0.14),rgba(61,214,198,0.08));box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+<strong style="font-size:1.05em;">MinasLab</strong> — <strong>84 prácticas curriculares</strong> (3 por asignatura) con escenarios interactivos 3D/2D: galerías, rajos, planta metalúrgica, ventilación, taller numérico, seguridad, topografía, oficina técnica, inglés minero, perforación, tesis e innovación. Cada instancia elige <strong>una</strong> práctica del catálogo al crear la actividad.
+</div>
+<p><strong>¿Para qué sirve?</strong> Reforzar contenidos del programa oficial, el perfil de egreso y competencias C1–C6, con progreso y calificación opcional en el libro de calificaciones.</p>
+<p><strong>28 asignaturas</strong> con 3 prácticas cada una:</p>
+<ul style="margin:6px 0 10px 18px;padding:0;column-count:2;column-gap:18px;">
+<li>Álgebra</li>
+<li>Bases de las Operaciones Mineras</li>
+<li>Elementos de Preparación de Minerales</li>
+<li>Inglés Técnico</li>
+<li>Prevención de Riesgos</li>
+<li>Topografía e Interpretación de Planos</li>
+<li>Cálculo</li>
+<li>Física Superior</li>
+<li>Geología Estructural y de Minas</li>
+<li>Probabilidad y Estadística</li>
+<li>Resistencia de Materiales</li>
+<li>Topografía de Minas</li>
+<li>Ecuaciones Diferenciales</li>
+<li>Elementos Mecánicos de Rocas</li>
+<li>Mecánica de Fluidos y Termodinámica</li>
+<li>Perforación y Tronadura</li>
+<li>Prospección y Evaluación de Yacimientos Mineros</li>
+<li>Sistema de Explotación Subterráneo</li>
+<li>Diseño y Evaluación de Proyectos</li>
+<li>Economía General</li>
+<li>Innovación y Tecnología</li>
+<li>Procesos Metalúrgicos</li>
+<li>Sistema de Explotación a Rajo Abierto</li>
+<li>Ventilación de Minas</li>
+<li>Dirección y Gestión de Empresas</li>
+<li>Proyecto Minero</li>
+<li>Proyecto de Título</li>
+<li>Servicios Mineros</li>
+</ul>
+<p><strong>Tipos de escenario (arquetipos)</strong></p>
+<ul style="margin:6px 0 10px 18px;">
+<li><strong>tunnel_3d</strong> — galería subterránea 3D</li>
+<li><strong>pit_3d</strong> — rajo abierto 3D</li>
+<li><strong>math_mine</strong> — taller numérico / problemas</li>
+<li><strong>flow_process</strong> — flujo metalúrgico</li>
+<li><strong>safety_module</strong> — seguridad y EPI</li>
+<li><strong>survey_field</strong> — topografía / replanteo</li>
+<li><strong>vent_shaft</strong> — ventilación</li>
+<li><strong>office_sim</strong> — oficina técnica / indicadores</li>
+<li><strong>english_mine</strong> — inglés técnico minero</li>
+<li><strong>drill_site</strong> — perforación (vista 2D)</li>
+<li><strong>thesis_lab</strong> — estructura de informe de título</li>
+<li><strong>innovation_board</strong> — innovación y I+D</li>
+</ul>
+<p><strong>Competencias del perfil de egreso (referencia C1–C6)</strong></p>
+<ul style="margin:6px 0 10px 18px;">
+<li><strong>C1</strong> — Operación minera (faena, procesos, criterios técnicos)</li>
+<li><strong>C2</strong> — Sustentabilidad y gestión de proyectos</li>
+<li><strong>C3</strong> — Seguridad y prevención de riesgos</li>
+<li><strong>C4</strong> — Diseño, análisis e innovación</li>
+<li><strong>C5</strong> — Comunicación efectiva (incl. inglés técnico)</li>
+<li><strong>C6</strong> — Ética profesional y ciudadana</li>
+</ul>
+<div style="margin-top:14px;padding:12px 14px;border-radius:12px;background:linear-gradient(135deg,rgba(244,162,58,0.18),rgba(61,214,198,0.12));border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 14px rgba(244,162,58,0.15);">
+<p style="margin:0 0 6px 0;"><strong style="color:#b45309;">Autoría</strong></p>
+<p style="margin:0;"><strong>John Rivera González</strong><br />
+<a href="mailto:johnriveragonzalez7@gmail.com" style="color:#0f766e;font-weight:600;">johnriveragonzalez7@gmail.com</a></p>
+<p style="margin:8px 0 0 0;font-size:0.9em;opacity:0.9;">Diseño curricular, integración MinasLab y escenarios de ingeniería de minas.</p>
+</div>
+</div>
+MINASLABHELP;
+$string['pluginname_help'] = $string['modulename_help'];
 $string['pluginname'] = 'MinasLab';
 $string['pluginadministration'] = 'Administración de MinasLab';
 $string['minaslabname'] = 'Nombre de la actividad';
