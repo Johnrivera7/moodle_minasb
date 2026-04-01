@@ -31,6 +31,7 @@ define([], function() {
         var minPhi = initial.minPhi != null ? initial.minPhi : 0.1;
         var maxPhi = initial.maxPhi != null ? initial.maxPhi : 1.48;
         var orbitDragging = {v: false};
+        var orbitDragEnabled = true;
         var activePid = -1;
         var lastX = 0;
         var lastY = 0;
@@ -47,6 +48,9 @@ define([], function() {
         applyOrbit();
 
         function onPointerDown(e) {
+            if (!orbitDragEnabled) {
+                return;
+            }
             if (e.button !== 0 && e.pointerType !== 'touch' && e.pointerType !== 'pen') {
                 return;
             }
@@ -71,7 +75,7 @@ define([], function() {
             }
         }
         function onPointerMove(e) {
-            if (!orbitDragging.v || e.pointerId !== activePid) {
+            if (!orbitDragEnabled || !orbitDragging.v || e.pointerId !== activePid) {
                 return;
             }
             var dx = e.clientX - lastX;
@@ -123,10 +127,39 @@ define([], function() {
             /** Rotación lenta cuando el usuario no arrastra (p. ej. vista del tajo). */
             spinIdle: function(rate) {
                 var r = rate != null ? rate : 0.00022;
+                if (!orbitDragEnabled) {
+                    return;
+                }
                 if (!orbitDragging.v) {
                     theta += r;
                     applyOrbit();
                 }
+            },
+            setOrbitDragEnabled: function(v) {
+                orbitDragEnabled = !!v;
+                if (!orbitDragEnabled) {
+                    orbitDragging.v = false;
+                    domElement.style.cursor = 'default';
+                } else {
+                    domElement.style.cursor = 'grab';
+                }
+            },
+            getAngles: function() {
+                return {theta: theta, phi: phi, radius: radius};
+            },
+            setAngles: function(t, p, r) {
+                if (t != null) {
+                    theta = t;
+                }
+                if (p != null) {
+                    phi = p;
+                }
+                if (r != null) {
+                    radius = r;
+                }
+                phi = Math.max(minPhi, Math.min(maxPhi, phi));
+                radius = Math.max(minR, Math.min(maxR, radius));
+                applyOrbit();
             }
         };
     }
@@ -672,6 +705,10 @@ define([], function() {
         ground.receiveShadow = true;
         scene.add(ground);
 
+        var linesGroup = new THREE.Group();
+        linesGroup.name = 'ml-contours';
+        scene.add(linesGroup);
+
         /* Curvas de nivel en terreno (estilo plano / MDT didáctico). */
         var contourMat = new THREE.LineBasicMaterial({color: 0x1a4a8c, transparent: true, opacity: 0.92});
         var cr;
@@ -684,8 +721,12 @@ define([], function() {
                 pts.push(new THREE.Vector3(Math.cos(a) * cr, 0.04, Math.sin(a) * cr));
             }
             var cg = new THREE.BufferGeometry().setFromPoints(pts);
-            scene.add(new THREE.LineLoop(cg, contourMat));
+            linesGroup.add(new THREE.LineLoop(cg, contourMat));
         }
+
+        var equipGroup = new THREE.Group();
+        equipGroup.name = 'ml-equipment';
+        scene.add(equipGroup);
 
         /* Excavadora / palas (simplificada) */
         var excav = new THREE.Group();
@@ -720,7 +761,10 @@ define([], function() {
         exBucket.castShadow = true;
         excav.add(exBucket);
         excav.position.set(24, 0.2, 20);
-        scene.add(excav);
+        equipGroup.add(excav);
+
+        var pitSolidMeshes = [];
+        pitSolidMeshes.push(ground);
 
         var pitWall = new THREE.MeshStandardMaterial({
             color: 0x6d6864,
@@ -755,7 +799,7 @@ define([], function() {
                 var ba = (bi / bseg) * Math.PI * 2;
                 bpts.push(new THREE.Vector3(Math.cos(ba) * r0, level * 2.6 + 1.38, Math.sin(ba) * r0));
             }
-            scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bpts), benchLineMat));
+            linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bpts), benchLineMat));
             /* Berma: anillo interior más claro (solo línea). */
             var rBerm = r0 - 1.1;
             if (rBerm > 2.5) {
@@ -764,8 +808,9 @@ define([], function() {
                     ba = (bi / bseg) * Math.PI * 2;
                     bpts2.push(new THREE.Vector3(Math.cos(ba) * rBerm, level * 2.6 + 1.4, Math.sin(ba) * rBerm));
                 }
-                scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bpts2), bermLineMat));
+                linesGroup.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bpts2), bermLineMat));
             }
+            pitSolidMeshes.push(tier);
         }
 
         /* Rampa de acceso (volumen oscuro, más legible que el resto). */
@@ -778,6 +823,7 @@ define([], function() {
         rampMesh.castShadow = true;
         rampMesh.receiveShadow = true;
         scene.add(rampMesh);
+        pitSolidMeshes.push(rampMesh);
 
         var road = new THREE.Mesh(
             new THREE.RingGeometry(10, 14, 64),
@@ -788,6 +834,7 @@ define([], function() {
         road.receiveShadow = true;
         road.castShadow = true;
         scene.add(road);
+        pitSolidMeshes.push(road);
 
         var truckMat = new THREE.MeshStandardMaterial({color: 0xff6b35, metalness: 0.3, roughness: 0.65});
         var truckMat2 = new THREE.MeshStandardMaterial({color: 0xe8d44d, metalness: 0.25, roughness: 0.7});
@@ -800,7 +847,7 @@ define([], function() {
             grp.add(body);
             grp.position.set(Math.cos(tr * 1.02) * (14 + (tr % 3)), 1, Math.sin(tr * 1.02) * (14 + (tr % 3)));
             grp.rotation.y = tr * 1.05;
-            scene.add(grp);
+            equipGroup.add(grp);
             trucks.push(grp);
         }
 
@@ -829,16 +876,214 @@ define([], function() {
             maxPhi: 1.38
         });
 
+        pitSolidMeshes.push(equipGroup);
+
+        var pt = theme.pitTools || {};
+        var measureMode = false;
+        var measurePoints = [];
+        var measureGroup = new THREE.Group();
+        scene.add(measureGroup);
+        var raycaster = new THREE.Raycaster();
+        var ndc = new THREE.Vector2();
+        var camTween = null;
+        var ptrDown = {x: 0, y: 0};
+
+        function clearMeasureVisual() {
+            while (measureGroup.children.length) {
+                var ch = measureGroup.children[0];
+                measureGroup.remove(ch);
+                if (ch.geometry) {
+                    ch.geometry.dispose();
+                }
+                if (ch.material) {
+                    if (Array.isArray(ch.material)) {
+                        ch.material.forEach(function(m) {
+                            m.dispose();
+                        });
+                    } else {
+                        ch.material.dispose();
+                    }
+                }
+            }
+        }
+
+        var toolbar = document.createElement('div');
+        toolbar.className = 'ml-3d-toolbar';
+        toolbar.setAttribute('role', 'toolbar');
+
+        function addToolButton(label, act, extraClass) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'ml-3d-toolbtn' + (extraClass ? ' ' + extraClass : '');
+            b.textContent = label || '';
+            b.setAttribute('data-act', act);
+            return b;
+        }
+
+        var row1 = document.createElement('div');
+        row1.className = 'ml-3d-toolbar__row';
+        row1.appendChild(addToolButton(pt.presetIso || 'ISO', 'preset-iso'));
+        row1.appendChild(addToolButton(pt.presetPlan || 'Planta', 'preset-plan'));
+        row1.appendChild(addToolButton(pt.presetSection || 'Perfil', 'preset-section'));
+        var measureBtn = addToolButton(pt.measureToggle || 'Medir', 'measure', 'ml-3d-toolbtn--accent');
+        row1.appendChild(measureBtn);
+        row1.appendChild(addToolButton(pt.clearMeasure || 'Borrar medición', 'clear-measure'));
+
+        var row2 = document.createElement('div');
+        row2.className = 'ml-3d-toolbar__row';
+        var labCont = document.createElement('label');
+        labCont.className = 'ml-3d-tool-check';
+        var chkCont = document.createElement('input');
+        chkCont.type = 'checkbox';
+        chkCont.checked = true;
+        chkCont.setAttribute('data-act', 'toggle-contours');
+        labCont.appendChild(chkCont);
+        labCont.appendChild(document.createTextNode(' ' + (pt.layerContours || 'Contornos')));
+        row2.appendChild(labCont);
+        var labEq = document.createElement('label');
+        labEq.className = 'ml-3d-tool-check';
+        var chkEq = document.createElement('input');
+        chkEq.type = 'checkbox';
+        chkEq.checked = true;
+        chkEq.setAttribute('data-act', 'toggle-equip');
+        labEq.appendChild(chkEq);
+        labEq.appendChild(document.createTextNode(' ' + (pt.layerEquip || 'Equipos')));
+        row2.appendChild(labEq);
+
+        var readout = document.createElement('span');
+        readout.className = 'ml-3d-toolbar__readout';
+        readout.setAttribute('aria-live', 'polite');
+        row2.appendChild(readout);
+
+        var hintEl = document.createElement('p');
+        hintEl.className = 'ml-3d-toolbar__hint';
+        toolbar.appendChild(row1);
+        toolbar.appendChild(row2);
+        toolbar.appendChild(hintEl);
+        host.appendChild(toolbar);
+
+        function startPreset(angles) {
+            camTween = {
+                a: orbitPit.getAngles(),
+                b: angles,
+                t0: performance.now(),
+                dur: 560
+            };
+        }
+
+        function onToolbarClick(ev) {
+            var t = ev.target;
+            var act = t.getAttribute && t.getAttribute('data-act');
+            if (!act) {
+                return;
+            }
+            if (act === 'preset-iso') {
+                startPreset({theta: 0.95, phi: 0.52, radius: 52});
+            } else if (act === 'preset-plan') {
+                startPreset({theta: 0.88, phi: 0.22, radius: 78});
+            } else if (act === 'preset-section') {
+                startPreset({theta: 0.06, phi: 0.38, radius: 56});
+            } else if (act === 'measure') {
+                measureMode = !measureMode;
+                orbitPit.setOrbitDragEnabled(!measureMode);
+                measureBtn.classList.toggle('ml-3d-toolbtn--on', measureMode);
+                hintEl.textContent = measureMode ? (pt.measureHint || '') : '';
+            } else if (act === 'clear-measure') {
+                measurePoints = [];
+                clearMeasureVisual();
+                readout.textContent = '';
+            }
+        }
+
+        function onToolbarChange(ev) {
+            var inp = ev.target;
+            var act = inp.getAttribute && inp.getAttribute('data-act');
+            if (!act || inp.type !== 'checkbox') {
+                return;
+            }
+            if (act === 'toggle-contours') {
+                linesGroup.visible = inp.checked;
+            } else if (act === 'toggle-equip') {
+                equipGroup.visible = inp.checked;
+            }
+        }
+
+        toolbar.addEventListener('click', onToolbarClick);
+        toolbar.addEventListener('change', onToolbarChange);
+
+        function onPitPointerDown(e) {
+            ptrDown.x = e.clientX;
+            ptrDown.y = e.clientY;
+        }
+
+        function onPitPointerUp(e) {
+            if (!measureMode || e.button !== 0) {
+                return;
+            }
+            var dx = e.clientX - ptrDown.x;
+            var dy = e.clientY - ptrDown.y;
+            if (dx * dx + dy * dy > 100) {
+                return;
+            }
+            var rect = renderer.domElement.getBoundingClientRect();
+            ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(ndc, camera);
+            var hits = raycaster.intersectObjects(pitSolidMeshes, true);
+            if (!hits.length) {
+                return;
+            }
+            var hitp = hits[0].point.clone();
+            if (measurePoints.length >= 2) {
+                measurePoints = [];
+                clearMeasureVisual();
+                readout.textContent = '';
+            }
+            measurePoints.push(hitp);
+            var mk = new THREE.Mesh(
+                new THREE.SphereGeometry(0.42, 14, 14),
+                new THREE.MeshStandardMaterial({color: 0xf97316, emissive: 0x442208, roughness: 0.55, metalness: 0.15})
+            );
+            mk.position.copy(hitp);
+            measureGroup.add(mk);
+            if (measurePoints.length === 2) {
+                var g = new THREE.BufferGeometry().setFromPoints([measurePoints[0], measurePoints[1]]);
+                var ln = new THREE.Line(g, new THREE.LineBasicMaterial({color: 0xf97316}));
+                measureGroup.add(ln);
+                var dist = measurePoints[0].distanceTo(measurePoints[1]);
+                readout.textContent = (pt.distLabel || 'Distancia') + ': ' + (Math.round(dist * 10) / 10) + ' m';
+            }
+        }
+
+        renderer.domElement.addEventListener('pointerdown', onPitPointerDown);
+        renderer.domElement.addEventListener('pointerup', onPitPointerUp);
+
         var camAng = 0;
         var pitAnim;
         var pitRunning = true;
-        function loop() {
+        function loop(now) {
             if (!pitRunning) {
                 return;
             }
             pitAnim = requestAnimationFrame(loop);
+            now = now != null ? now : performance.now();
             camAng += 0.0012;
-            orbitPit.spinIdle(0.00018);
+            if (camTween) {
+                var u = Math.min(1, (now - camTween.t0) / camTween.dur);
+                u = u * u * (3 - 2 * u);
+                var A = camTween.a;
+                var B = camTween.b;
+                orbitPit.setAngles(
+                    A.theta + (B.theta - A.theta) * u,
+                    A.phi + (B.phi - A.phi) * u,
+                    A.radius + (B.radius - A.radius) * u
+                );
+                if (u >= 1) {
+                    camTween = null;
+                }
+            } else if (!measureMode) {
+                orbitPit.spinIdle(0.00018);
+            }
             trucks.forEach(function(tk, idx) {
                 tk.rotation.y += 0.008 + idx * 0.001;
                 tk.position.y = 1 + Math.sin(camAng * 3 + idx) * 0.15;
@@ -885,9 +1130,17 @@ define([], function() {
                     roPit.disconnect();
                 }
                 window.removeEventListener('resize', onResize);
+                toolbar.removeEventListener('click', onToolbarClick);
+                toolbar.removeEventListener('change', onToolbarChange);
+                renderer.domElement.removeEventListener('pointerdown', onPitPointerDown);
+                renderer.domElement.removeEventListener('pointerup', onPitPointerUp);
+                clearMeasureVisual();
                 orbitPit.dispose();
                 skyTex.dispose();
                 renderer.dispose();
+                if (host.contains(toolbar)) {
+                    host.removeChild(toolbar);
+                }
                 if (host.contains(renderer.domElement)) {
                     host.removeChild(renderer.domElement);
                 }

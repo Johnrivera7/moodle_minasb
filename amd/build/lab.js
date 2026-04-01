@@ -172,6 +172,17 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             shell.viewport.innerHTML = '<div class="ml-fallback">WebGL no disponible</div>';
             return;
         }
+        theme.pitTools = {
+            presetIso: t.pitPresetIso,
+            presetPlan: t.pitPresetPlan,
+            presetSection: t.pitPresetSection,
+            measureToggle: t.pitMeasureToggle,
+            clearMeasure: t.pitClearMeasure,
+            layerContours: t.pitLayerContours,
+            layerEquip: t.pitLayerEquip,
+            measureHint: t.pitMeasureHint,
+            distLabel: t.pitDistLabel
+        };
         scenes3d.mountPit(shell.viewport, activity, theme, THREE);
         appendPitLegend(shell.viewport, t, labpractices.getPitBermRefMeters(cfg.activityKey));
 

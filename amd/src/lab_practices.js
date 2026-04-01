@@ -706,7 +706,7 @@ define([], function() {
                     type: 'slider',
                     title: 'Paso 1 · Lectura frente al modelo 3D',
                     text: 'Ajusta el valor al <strong>ancho de berma de referencia (m)</strong> indicado bajo la vista 3D. ' +
-                        'Orbita y haz zoom para contextualizar; luego comprobar.',
+                        'Usa la barra de herramientas del 3D (vistas ISO/planta/perfil, capas, medición) para contextualizar; luego comprobar.',
                     min: 5,
                     max: 18,
                     step: 0.5,

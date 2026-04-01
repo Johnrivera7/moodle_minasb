@@ -110,6 +110,15 @@ $string['scene_legend_algebra'] = '3D: blast face with drill holes; frame = 2×2
 $string['scene_legend_tunnel'] = '3D: gallery with rails and ground support (underground operations).';
 $string['scene_legend_pit'] = '3D: open pit (technical-style view) — blue lines = benches/berms; dark strip = ramp; outer contours = terrain; equipment on levels.';
 $string['scene_legend_pit_berm'] = 'Reference berm width (step 1): ## m.';
+$string['pit_preset_iso'] = 'ISO view';
+$string['pit_preset_plan'] = 'Plan';
+$string['pit_preset_section'] = 'Section';
+$string['pit_measure_toggle'] = 'Measure distance';
+$string['pit_clear_measure'] = 'Clear measurement';
+$string['pit_layer_contours'] = 'Contours';
+$string['pit_layer_equip'] = 'Equipment';
+$string['pit_measure_hint'] = 'Measure mode: drag does not orbit; click twice on the model. Zoom still works (wheel or pinch / Ctrl+scroll).';
+$string['pit_dist_label'] = 'Distance';
 $string['lab_fullscreen'] = 'Full screen';
 $string['lab_exit_fullscreen'] = 'Exit full screen';
 $string['lab_flow_instruction'] = 'Activate the stages in order (mine to product). Each click must follow the correct metallurgical sequence.';

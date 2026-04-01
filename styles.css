@@ -1119,6 +1119,77 @@ body:not(.path-mod-minaslab) .minaslab-app {
     background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(244, 162, 58, 0.12), transparent);
 }
 
+.ml-3d-toolbar {
+    order: 2;
+    margin-top: 0.4rem;
+    padding: 0.45rem 0.55rem;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.78rem;
+    color: #d0dae6;
+}
+
+.ml-3d-toolbar__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.ml-3d-toolbar__row:last-of-type {
+    margin-bottom: 0;
+}
+
+.ml-3d-toolbtn {
+    font: inherit;
+    font-size: 0.76rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: #e8edf5;
+    cursor: pointer;
+}
+
+.ml-3d-toolbtn:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.ml-3d-toolbtn--accent {
+    border-color: rgba(61, 214, 198, 0.45);
+}
+
+.ml-3d-toolbtn--on {
+    background: rgba(61, 214, 198, 0.22);
+    border-color: rgba(61, 214, 198, 0.55);
+    color: #b8fff4;
+}
+
+.ml-3d-tool-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    font-size: 0.76rem;
+    color: #a8b6c4;
+}
+
+.ml-3d-toolbar__readout {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    color: #f4a23a;
+    font-weight: 600;
+}
+
+.ml-3d-toolbar__hint {
+    margin: 0.4rem 0 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: #8b98ab;
+}
+
 .ml-3d-legend {
     margin-top: 0.5rem;
     padding: 0.5rem 0.65rem;
@@ -1128,7 +1199,7 @@ body:not(.path-mod-minaslab) .minaslab-app {
     background: rgba(0, 0, 0, 0.35);
     border-radius: 8px;
     border: 1px solid rgba(61, 214, 198, 0.22);
-    order: 2;
+    order: 3;
 }
 
 .ml-pro__viewport canvas {

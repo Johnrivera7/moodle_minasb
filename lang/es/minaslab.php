@@ -110,6 +110,15 @@ $string['scene_legend_algebra'] = 'Escena 3D: frente de voladura con barrenos; e
 $string['scene_legend_tunnel'] = 'Escena 3D: galería con rieles, sostenimiento y señalización (faena subterránea).';
 $string['scene_legend_pit'] = 'Escena 3D: tajo (vista tipo plano) — líneas azules = bancos y bermas; franja oscura = rampa; curvas exteriores = terreno; equipos en niveles.';
 $string['scene_legend_pit_berm'] = 'Berma de referencia (paso 1): ## m.';
+$string['pit_preset_iso'] = 'Vista ISO';
+$string['pit_preset_plan'] = 'Planta';
+$string['pit_preset_section'] = 'Perfil';
+$string['pit_measure_toggle'] = 'Medir distancia';
+$string['pit_clear_measure'] = 'Borrar medición';
+$string['pit_layer_contours'] = 'Contornos';
+$string['pit_layer_equip'] = 'Equipos';
+$string['pit_measure_hint'] = 'Modo medición: al arrastrar no orbita; haz clic en el modelo para dos puntos. Zoom: rueda o pellizco (Ctrl+desplazamiento).';
+$string['pit_dist_label'] = 'Distancia';
 $string['lab_fullscreen'] = 'Pantalla completa';
 $string['lab_exit_fullscreen'] = 'Salir de pantalla completa';
 $string['lab_flow_instruction'] = 'Activa las etapas en orden (de mina a producto). Cada clic debe seguir la secuencia metalúrgica correcta.';
