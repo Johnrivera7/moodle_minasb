@@ -2357,6 +2357,13 @@ define([], function() {
         var pitAnim;
         var pitRunning = true;
         var pathSpeed = 0.00042;
+        /* Orientación de camión sin roll arbitrario: setFromUnitVectors torcía sobre la tangente. */
+        var truckBasisMat = new THREE.Matrix4();
+        var truckFwd = new THREE.Vector3();
+        var truckRight = new THREE.Vector3();
+        var truckUp = new THREE.Vector3();
+        var truckWU = new THREE.Vector3(0, 1, 0);
+        var truckAU = new THREE.Vector3(0, 0, 1);
 
         function loop(now) {
             if (!pitRunning) {
@@ -2401,8 +2408,16 @@ define([], function() {
                     dir.set(0, 0, 1);
                 }
                 rt.g.position.set(p.x, p.y + 0.32, p.z);
-                /* Cabina hacia +Z local; alinear con tangente (evita lookAt y barrenado sobre eje). */
-                rt.g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+                /* +Z local = sentido de marcha; base ortonormal con “arriba” ≈ Y mundo → roll estable (sin vuelta lateral 360°). */
+                truckFwd.copy(dir);
+                truckRight.crossVectors(truckFwd, truckWU);
+                if (truckRight.lengthSq() < 1e-10) {
+                    truckRight.crossVectors(truckFwd, truckAU);
+                }
+                truckRight.normalize();
+                truckUp.crossVectors(truckRight, truckFwd).normalize();
+                truckBasisMat.makeBasis(truckRight, truckUp, truckFwd);
+                rt.g.quaternion.setFromRotationMatrix(truckBasisMat);
             });
 
             exG.rotation.y = Math.sin(camAng * 1.6) * 0.35;
