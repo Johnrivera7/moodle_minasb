@@ -106,6 +106,9 @@ $string['flow_competency_hint'] = 'Secuencia tipo planta: vinculada a competenci
 $string['office_sensitivity_title'] = 'Sensibilidad económica (VPN indicativa)';
 $string['office_sensitivity_blurb'] = 'Ajusta inversión, tasa y horizonte para ver el efecto en la VPN del modelo didáctico (bloques de decisión tipo estudio de pre-factibilidad).';
 $string['english_hud_prompt'] = 'Briefing de radio en faena — completa la práctica guiada a la derecha (C5 comunicación técnica).';
+$string['scene_legend_algebra'] = 'Escena 3D: frente de voladura con barrenos; el marco simboliza la matriz 2×2 (cargas). No es túnel con rieles.';
+$string['scene_legend_tunnel'] = 'Escena 3D: galería con rieles, sostenimiento y señalización (faena subterránea).';
+$string['scene_legend_pit'] = 'Escena 3D: tajo — plataformas en anillos = bancos; aros claros = bermas; franja oscura = rampa; equipos en niveles.';
 $string['lab_fullscreen'] = 'Pantalla completa';
 $string['lab_exit_fullscreen'] = 'Salir de pantalla completa';
 $string['lab_flow_instruction'] = 'Activa las etapas en orden (de mina a producto). Cada clic debe seguir la secuencia metalúrgica correcta.';

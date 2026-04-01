@@ -106,6 +106,9 @@ $string['flow_competency_hint'] = 'Plant-style sequence: ties to process-mineral
 $string['office_sensitivity_title'] = 'Economic sensitivity (indicative NPV)';
 $string['office_sensitivity_blurb'] = 'Adjust investment, discount rate, and horizon to see the effect on NPV in this teaching model (decision blocks similar to pre-feasibility studies).';
 $string['english_hud_prompt'] = 'Radio briefing — complete the guided practice on the right (C5 technical communication).';
+$string['scene_legend_algebra'] = '3D: blast face with drill holes; frame = 2×2 charge matrix. Not a rail tunnel.';
+$string['scene_legend_tunnel'] = '3D: gallery with rails and ground support (underground operations).';
+$string['scene_legend_pit'] = '3D: open pit — ring benches; light torus = berms; dark strip = ramp; equipment on levels.';
 $string['lab_fullscreen'] = 'Full screen';
 $string['lab_exit_fullscreen'] = 'Exit full screen';
 $string['lab_flow_instruction'] = 'Activate the stages in order (mine to product). Each click must follow the correct metallurgical sequence.';

@@ -271,26 +271,26 @@ define([], function() {
             return [
                 {
                     type: 'numeric',
-                    title: 'Paso 1 · Álgebra aplicada a malla de disparo (matriz 2×2)',
-                    text: 'Considera la matriz de coeficientes <strong>[[' + m.a + ',' + m.b + '],[' + m.c + ',' + m.d +
-                        ']]</strong>. Calcula el determinante (ad − bc).',
+                    title: 'Paso 1 · Matriz 2×2 en el frente (vincula con la escena 3D)',
+                    text: 'Los cuatro barrenos resaltados corresponden a los coeficientes <strong>[[' + m.a + ',' + m.b + '],[' +
+                        m.c + ',' + m.d + ']]</strong>. Calcula el determinante (ad − bc).',
                     answer: m.det,
                     tolerance: 0.01
                 },
                 {
                     type: 'order',
-                    title: 'Paso 2 · Secuencia en frente (orden correcto)',
+                    title: 'Paso 2 · Secuencia real de voladura (orden de faena)',
                     labels: ['Perforar según malla', 'Cargar explosivo', 'Conectar malla de tierra', 'Disparo autorizado'],
                     correctSeq: [0, 1, 2, 3]
                 },
                 {
                     type: 'mc',
-                    title: 'Paso 3 · Interpretación',
-                    q: 'En este contexto, ¿para qué sirve programar la malla con matrices?',
+                    title: 'Paso 3 · Modelo matemático vs campo',
+                    q: '¿Qué representa el determinante distinto de cero en un sistema 2×2 de planificación?',
                     options: [
-                        'Organizar cargas y retardos de forma sistemática',
-                        'Solo decorar el plano',
-                        'Evitar medir barrenos'
+                        'Que el sistema tiene solución única (útil para ajustar cargas sin contradicción)',
+                        'Que la voladura no necesita permiso',
+                        'Que el túnel no requiere ventilación'
                     ],
                     correct: 0
                 }

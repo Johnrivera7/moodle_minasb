@@ -97,6 +97,34 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
         return labui.buildSimulationShell(container, activity, cfg.activityKey || '', cfg.strings || {});
     }
 
+    function appendSceneLegend(viewport, activity, t) {
+        var prev = viewport.querySelector('.ml-3d-legend');
+        if (prev) {
+            prev.remove();
+        }
+        var leg = document.createElement('div');
+        leg.className = 'ml-3d-legend';
+        leg.setAttribute('role', 'note');
+        if (activity.subject_slug === 'algebra') {
+            leg.textContent = t.sceneLegendAlgebra || '';
+        } else {
+            leg.textContent = t.sceneLegendTunnel || '';
+        }
+        viewport.appendChild(leg);
+    }
+
+    function appendPitLegend(viewport, t) {
+        var prev = viewport.querySelector('.ml-3d-legend');
+        if (prev) {
+            prev.remove();
+        }
+        var leg = document.createElement('div');
+        leg.className = 'ml-3d-legend';
+        leg.setAttribute('role', 'note');
+        leg.textContent = t.sceneLegendPit || '';
+        viewport.appendChild(leg);
+    }
+
     function mountTunnel3d(container, activity, t, cfg) {
         var shell = openShell(container, activity, cfg);
         var theme = labui.themeFromKey(cfg.activityKey);
@@ -111,6 +139,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             return;
         }
         scenes3d.mountTunnel(shell.viewport, activity, theme, THREE);
+        appendSceneLegend(shell.viewport, activity, t);
 
         var host = shell.aside.querySelector('#ml-guided-tunnel');
         if (host) {
@@ -139,6 +168,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             return;
         }
         scenes3d.mountPit(shell.viewport, activity, theme, THREE);
+        appendPitLegend(shell.viewport, t);
 
         var hostP = shell.aside.querySelector('#ml-guided-pit');
         if (hostP) {

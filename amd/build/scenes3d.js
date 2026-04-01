@@ -3,12 +3,214 @@ define([], function() {
     'use strict';
 
     /**
+     * Tamaño del canvas acorde al contenedor (evita franjas vacías “cortadas”).
+     */
+    function viewportDimensions(host) {
+        var w = host.clientWidth || 640;
+        var ch = host.clientHeight;
+        var h;
+        if (ch > 160) {
+            h = Math.min(ch - 4, 640);
+        } else {
+            h = Math.min(460, Math.max(300, Math.round(w * 0.58)));
+        }
+        h = Math.max(280, h);
+        return {w: w, h: h};
+    }
+
+    /**
+     * Álgebra / voladura: frente de malla con barrenos (2×2 resaltado) — sin rieles de túnel.
+     */
+    function mountBlastFace(viewport, activity, theme, THREE) {
+        var host = viewport;
+        var dim0 = viewportDimensions(host);
+        var w = dim0.w;
+        var h = dim0.h;
+
+        var scene = new THREE.Scene();
+        var bg = 0x1e2229;
+        scene.background = new THREE.Color(bg);
+        scene.fog = new THREE.Fog(bg, 6, 38);
+
+        var camera = new THREE.PerspectiveCamera(48, w / h, 0.1, 120);
+        camera.position.set(0, 2.8, 9.2);
+
+        var renderer = new THREE.WebGLRenderer({antialias: true, alpha: false});
+        renderer.setSize(w, h);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
+        renderer.domElement.style.display = 'block';
+        renderer.domElement.style.verticalAlign = 'top';
+        host.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0x8a9098, 0.55));
+        var key = new THREE.DirectionalLight(0xfff5e6, 1.25);
+        key.position.set(4, 10, 12);
+        key.castShadow = true;
+        scene.add(key);
+        var rim = new THREE.PointLight(theme.warm, 0.6, 30);
+        rim.position.set(-3, 2, 4);
+        scene.add(rim);
+
+        /* Suelo galería */
+        var floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(24, 16),
+            new THREE.MeshStandardMaterial({color: 0x3a3530, roughness: 0.95})
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -0.01;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        /* Macizo rocoso alrededor */
+        var sideMat = new THREE.MeshStandardMaterial({color: 0x2d2a26, roughness: 0.98});
+        var left = new THREE.Mesh(new THREE.BoxGeometry(1, 6, 10), sideMat);
+        left.position.set(-7, 3, -1);
+        scene.add(left);
+        var right = left.clone();
+        right.position.x = 7;
+        scene.add(right);
+        var roof = new THREE.Mesh(new THREE.BoxGeometry(16, 0.8, 10), sideMat);
+        roof.position.set(0, 5.6, -1);
+        scene.add(roof);
+
+        /* Frente de voladura */
+        var face = new THREE.Mesh(
+            new THREE.PlaneGeometry(12, 7.5),
+            new THREE.MeshStandardMaterial({
+                color: 0x5e564c,
+                roughness: 0.92,
+                metalness: 0.05,
+                bumpScale: 0.02
+            })
+        );
+        face.position.set(0, 3.2, -3.95);
+        face.receiveShadow = true;
+        scene.add(face);
+
+        var holeMat = new THREE.MeshStandardMaterial({color: 0x1a1815, roughness: 0.88});
+        var chargeMat = new THREE.MeshStandardMaterial({
+            color: 0xff6622,
+            emissive: 0x551100,
+            emissiveIntensity: 0.45,
+            roughness: 0.45,
+            metalness: 0.2
+        });
+        var charges = [];
+        var gx;
+        var gy;
+        for (gy = 0; gy < 4; gy++) {
+            for (gx = 0; gx < 4; gx++) {
+                var hx = -2.1 + gx * 1.35;
+                var hy = 1.35 + (3 - gy) * 1.55;
+                var hole = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.22, 10), holeMat);
+                hole.rotation.x = Math.PI / 2;
+                hole.position.set(hx, hy, -3.78);
+                hole.castShadow = true;
+                scene.add(hole);
+                if (gx >= 1 && gx <= 2 && gy >= 1 && gy <= 2) {
+                    var ch = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.2, 8), chargeMat);
+                    ch.rotation.x = Math.PI / 2;
+                    ch.position.set(hx, hy, -3.55);
+                    scene.add(ch);
+                    charges.push(ch);
+                }
+            }
+        }
+
+        /* Marco matricial decorativo [ ] */
+        var frameMat = new THREE.MeshStandardMaterial({color: 0xc8b89a, metalness: 0.4, roughness: 0.4});
+        var fthick = 0.12;
+        var fwide = 5.2;
+        var fhi = 3.6;
+        var topB = new THREE.Mesh(new THREE.BoxGeometry(fwide, fthick, 0.08), frameMat);
+        topB.position.set(0, 4.85, -3.5);
+        scene.add(topB);
+        var botB = topB.clone();
+        botB.position.y = 1.55;
+        scene.add(botB);
+        var leftB = new THREE.Mesh(new THREE.BoxGeometry(fthick, fhi, 0.08), frameMat);
+        leftB.position.set(-2.55, 3.2, -3.5);
+        scene.add(leftB);
+        var rightB = leftB.clone();
+        rightB.position.x = 2.55;
+        scene.add(rightB);
+
+        var mx = 0;
+        var my = 0;
+        function onMove(e) {
+            mx += e.movementX * 0.002;
+            my += e.movementY * 0.001;
+        }
+        renderer.domElement.addEventListener('mousemove', onMove);
+
+        var t0 = performance.now();
+        var animId;
+        var running = true;
+        function loop(now) {
+            if (!running) {
+                return;
+            }
+            animId = requestAnimationFrame(loop);
+            var tsec = (now - t0) * 0.001;
+            camera.position.x = Math.sin(tsec * 0.25 + mx) * 0.45;
+            camera.position.y = 2.8 + Math.sin(tsec * 0.4) * 0.06 + my * 0.3;
+            camera.lookAt(0, 3.1, -4);
+            var ci;
+            for (ci = 0; ci < charges.length; ci++) {
+                charges[ci].material.emissiveIntensity = 0.35 + Math.sin(tsec * 3 + ci) * 0.15;
+            }
+            renderer.render(scene, camera);
+        }
+        animId = requestAnimationFrame(loop);
+
+        function onResize() {
+            var dim = viewportDimensions(host);
+            w = dim.w;
+            h = dim.h;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', onResize);
+        var ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
+        if (ro) {
+            ro.observe(host);
+        }
+
+        return {
+            dispose: function() {
+                running = false;
+                if (animId) {
+                    cancelAnimationFrame(animId);
+                }
+                if (ro) {
+                    ro.disconnect();
+                }
+                window.removeEventListener('resize', onResize);
+                renderer.domElement.removeEventListener('mousemove', onMove);
+                renderer.dispose();
+                if (host.contains(renderer.domElement)) {
+                    host.removeChild(renderer.domElement);
+                }
+            }
+        };
+    }
+
+    /**
      * Túnel subterráneo: galería con rieles, polvo, luces móviles, cableado.
      */
     function mountTunnel(viewport, activity, theme, THREE) {
+        if (activity && activity.subject_slug === 'algebra') {
+            return mountBlastFace(viewport, activity, theme, THREE);
+        }
         var host = viewport;
-        var w = host.clientWidth || 640;
-        var h = 380;
+        var dim0 = viewportDimensions(host);
+        var w = dim0.w;
+        var h = dim0.h;
 
         var scene = new THREE.Scene();
         /* Niebla lineal + fondo más claro: legibilidad de paredes, rieles y suelo (no “universo”). */
@@ -31,6 +233,7 @@ define([], function() {
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.22;
+        renderer.domElement.style.display = 'block';
         host.appendChild(renderer.domElement);
 
         var amb = new THREE.AmbientLight(0xa0b0c8, 0.62);
@@ -260,8 +463,9 @@ define([], function() {
         animId = requestAnimationFrame(loop);
 
         function onResize() {
-            w = host.clientWidth || 640;
-            h = Math.min(420, Math.max(280, Math.round(w * 0.52)));
+            var dim = viewportDimensions(host);
+            w = dim.w;
+            h = dim.h;
             camera.aspect = w / h;
             camera.updateProjectionMatrix();
             renderer.setSize(w, h);
@@ -298,8 +502,9 @@ define([], function() {
      */
     function mountPit(viewport, activity, theme, THREE) {
         var host = viewport;
-        var w = host.clientWidth || 640;
-        var h = 380;
+        var dim0 = viewportDimensions(host);
+        var w = dim0.w;
+        var h = dim0.h;
 
         var scene = new THREE.Scene();
         var sky = 0x8eb4dc;
@@ -316,6 +521,7 @@ define([], function() {
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.12;
+        renderer.domElement.style.display = 'block';
         host.appendChild(renderer.domElement);
 
         var sun = new THREE.DirectionalLight(0xfff2dd, 1.45);
@@ -402,6 +608,35 @@ define([], function() {
             scene.add(tier);
         }
 
+        /* Berma: anillo claro en borde de cada banco */
+        var lev;
+        for (lev = 0; lev < 8; lev++) {
+            var rLip = 26 - lev * 2.8 + 0.08;
+            if (rLip < 4) {
+                break;
+            }
+            var berm = new THREE.Mesh(
+                new THREE.TorusGeometry(rLip, 0.32, 8, 56),
+                new THREE.MeshStandardMaterial({color: 0xa89278, roughness: 0.88, metalness: 0.02})
+            );
+            berm.rotation.x = Math.PI / 2;
+            berm.position.y = lev * 2.6 + 1.32;
+            berm.castShadow = true;
+            berm.receiveShadow = true;
+            scene.add(berm);
+        }
+
+        /* Rampa de acceso (volumen oscuro en espiral) */
+        var rampMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(5.5, 0.4, 58),
+            new THREE.MeshStandardMaterial({color: 0x33302c, roughness: 0.92})
+        );
+        rampMesh.rotation.set(-0.38, 0.72, 0.05);
+        rampMesh.position.set(40, 12, 36);
+        rampMesh.castShadow = true;
+        rampMesh.receiveShadow = true;
+        scene.add(rampMesh);
+
         var road = new THREE.Mesh(
             new THREE.RingGeometry(10, 14, 64),
             new THREE.MeshStandardMaterial({color: 0x2c2c2c, roughness: 0.9})
@@ -485,7 +720,7 @@ define([], function() {
             camera.position.x = Math.cos(theta) * rad * Math.cos(elev);
             camera.position.z = Math.sin(theta) * rad * Math.cos(elev);
             camera.position.y = rad * Math.sin(elev) + 9;
-            camera.lookAt(0, 6.5, 0);
+            camera.lookAt(0, 9, 0);
             trucks.forEach(function(tk, idx) {
                 tk.rotation.y += 0.008 + idx * 0.001;
                 tk.position.y = 1 + Math.sin(camAng * 3 + idx) * 0.15;
@@ -508,8 +743,9 @@ define([], function() {
         pitAnim = requestAnimationFrame(loop);
 
         function onResize() {
-            w = host.clientWidth || 640;
-            h = Math.min(420, Math.max(280, Math.round(w * 0.52)));
+            var dim = viewportDimensions(host);
+            w = dim.w;
+            h = dim.h;
             camera.aspect = w / h;
             camera.updateProjectionMatrix();
             renderer.setSize(w, h);
@@ -549,8 +785,9 @@ define([], function() {
      */
     function mountVent(viewport, activity, theme, THREE) {
         var host = viewport;
-        var w = host.clientWidth || 640;
-        var h = 380;
+        var dimV = viewportDimensions(host);
+        var w = dimV.w;
+        var h = dimV.h;
 
         var scene = new THREE.Scene();
         scene.background = new THREE.Color(0x070a10);
@@ -562,6 +799,7 @@ define([], function() {
         var renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
         renderer.setSize(w, h);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.domElement.style.display = 'block';
         host.appendChild(renderer.domElement);
 
         scene.add(new THREE.HemisphereLight(0x8899bb, 0x1a1a1a, 0.9));
@@ -688,8 +926,9 @@ define([], function() {
         ventAnim = requestAnimationFrame(loop);
 
         function onResize() {
-            w = host.clientWidth || 640;
-            h = Math.min(420, Math.max(280, Math.round(w * 0.52)));
+            var dim = viewportDimensions(host);
+            w = dim.w;
+            h = dim.h;
             camera.aspect = w / h;
             camera.updateProjectionMatrix();
             renderer.setSize(w, h);
