@@ -13,6 +13,11 @@ define([], function() {
         return Math.abs(h);
     }
 
+    /** Ancho de berma didáctico (m) alineado con el paso slider del tajo (misma semilla que la actividad). */
+    function getPitBermRefMeters(key) {
+        return 8 + (hashActivityKey(key || '') % 7);
+    }
+
     function esc(s) {
         if (!s) {
             return '';
@@ -247,6 +252,47 @@ define([], function() {
                 });
                 body.appendChild(og);
                 body.appendChild(btn3);
+            } else if (step.type === 'slider') {
+                var sp = document.createElement('p');
+                sp.className = 'ml-guided__text';
+                sp.innerHTML = step.text || '';
+                body.appendChild(sp);
+                var sliderWrap = document.createElement('div');
+                sliderWrap.className = 'ml-guided__slider';
+                var rng = document.createElement('input');
+                rng.type = 'range';
+                rng.min = String(step.min != null ? step.min : 0);
+                rng.max = String(step.max != null ? step.max : 100);
+                rng.step = String(step.step != null ? step.step : 1);
+                rng.value = String(step.start != null ? step.start : step.min);
+                rng.setAttribute('aria-valuemin', rng.min);
+                rng.setAttribute('aria-valuemax', rng.max);
+                var valOut = document.createElement('span');
+                valOut.className = 'ml-guided__slider-val';
+                function syncSliderOut() {
+                    var u = step.unit || '';
+                    var suf = step.suffix || '';
+                    valOut.textContent = (u ? u + ': ' : '') + rng.value + (suf ? ' ' + suf : '');
+                }
+                syncSliderOut();
+                rng.addEventListener('input', syncSliderOut);
+                sliderWrap.appendChild(rng);
+                sliderWrap.appendChild(valOut);
+                body.appendChild(sliderWrap);
+                var btnSl = document.createElement('button');
+                btnSl.type = 'button';
+                btnSl.className = 'ml-btn';
+                btnSl.textContent = t.check || 'Verificar';
+                btnSl.addEventListener('click', function() {
+                    var v = parseFloat(rng.value);
+                    var tol = step.tolerance != null ? step.tolerance : 0.51;
+                    if (Math.abs(v - step.target) <= tol) {
+                        nextStep();
+                    } else {
+                        bad(step.hintWrong);
+                    }
+                });
+                body.appendChild(btnSl);
             }
         }
 
@@ -654,10 +700,25 @@ define([], function() {
             ];
         }
         if (key === 's4_exp_rajo_a') {
+            var bermRef = getPitBermRefMeters(key);
             return [
                 {
+                    type: 'slider',
+                    title: 'Paso 1 · Lectura frente al modelo 3D',
+                    text: 'Ajusta el valor al <strong>ancho de berma de referencia (m)</strong> indicado bajo la vista 3D. ' +
+                        'Orbita y haz zoom para contextualizar; luego comprobar.',
+                    min: 5,
+                    max: 18,
+                    step: 0.5,
+                    start: 11,
+                    target: bermRef,
+                    tolerance: 0.51,
+                    unit: 'Valor',
+                    suffix: 'm'
+                },
+                {
                     type: 'mc',
-                    title: 'Paso 1 · Geometría del tajo',
+                    title: 'Paso 2 · Geometría del tajo',
                     q: 'La berma en un tajo sirve principalmente para…',
                     options: [
                         'Contener derrubios y dar plataforma segura',
@@ -665,14 +726,6 @@ define([], function() {
                         'Eliminar el uso de rampa'
                     ],
                     correct: 0
-                },
-                {
-                    type: 'numeric',
-                    title: 'Paso 2 · Relación simple',
-                    text: 'Si el ancho de bermas suma ' + (12 + (h % 6)) + ' m y hay ' + (5 + (h % 3)) +
-                        ' bancos, ¿ancho promedio por banco (m) aproximado?',
-                    answer: (12 + (h % 6)) / (5 + (h % 3)),
-                    tolerance: 0.21
                 },
                 {
                     type: 'order',
@@ -1204,6 +1257,7 @@ define([], function() {
         mountGuidedEnglish: mountGuidedEnglish,
         mountGuidedInnovation: mountGuidedInnovation,
         hashActivityKey: hashActivityKey,
+        getPitBermRefMeters: getPitBermRefMeters,
         buildMathMineSteps: buildMathMineSteps
     };
 });

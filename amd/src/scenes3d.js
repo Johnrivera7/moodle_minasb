@@ -19,6 +19,119 @@ define([], function() {
     }
 
     /**
+     * Órbita + zoom con mouse o trackpad (rueda / pellizco ≈ Ctrl+rueda).
+     */
+    function attachTrackpadOrbit(THREE, domElement, camera, target, initial) {
+        initial = initial || {};
+        var theta = initial.theta != null ? initial.theta : 0.85;
+        var phi = initial.phi != null ? initial.phi : 0.48;
+        var radius = initial.radius != null ? initial.radius : 38;
+        var minR = initial.minR != null ? initial.minR : 10;
+        var maxR = initial.maxR != null ? initial.maxR : 130;
+        var minPhi = initial.minPhi != null ? initial.minPhi : 0.1;
+        var maxPhi = initial.maxPhi != null ? initial.maxPhi : 1.48;
+        var orbitDragging = {v: false};
+        var activePid = -1;
+        var lastX = 0;
+        var lastY = 0;
+
+        function applyOrbit() {
+            var cp = Math.cos(phi);
+            camera.position.set(
+                target.x + radius * cp * Math.sin(theta),
+                target.y + radius * Math.sin(phi),
+                target.z + radius * cp * Math.cos(theta)
+            );
+            camera.lookAt(target);
+        }
+        applyOrbit();
+
+        function onPointerDown(e) {
+            if (e.button !== 0 && e.pointerType !== 'touch' && e.pointerType !== 'pen') {
+                return;
+            }
+            orbitDragging.v = true;
+            activePid = e.pointerId;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            domElement.style.cursor = 'grabbing';
+            try {
+                domElement.setPointerCapture(e.pointerId);
+            } catch (err) {
+                // ignore
+            }
+        }
+        function onPointerUp(e) {
+            orbitDragging.v = false;
+            domElement.style.cursor = 'grab';
+            try {
+                domElement.releasePointerCapture(e.pointerId);
+            } catch (err2) {
+                // ignore
+            }
+        }
+        function onPointerMove(e) {
+            if (!orbitDragging.v || e.pointerId !== activePid) {
+                return;
+            }
+            var dx = e.clientX - lastX;
+            var dy = e.clientY - lastY;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            theta -= dx * 0.0048;
+            phi -= dy * 0.0038;
+            phi = Math.max(minPhi, Math.min(maxPhi, phi));
+            applyOrbit();
+        }
+        function onWheel(e) {
+            e.preventDefault();
+            var dy = e.deltaY;
+            if (e.deltaMode === 1) {
+                dy *= 14;
+            } else if (e.deltaMode === 2) {
+                dy *= 60;
+            }
+            var sens = e.ctrlKey ? 0.0018 : 0.0011;
+            var factor = 1 + dy * sens;
+            radius *= factor;
+            radius = Math.max(minR, Math.min(maxR, radius));
+            applyOrbit();
+        }
+
+        domElement.style.touchAction = 'none';
+        domElement.style.cursor = 'grab';
+        domElement.addEventListener('pointerdown', onPointerDown);
+        domElement.addEventListener('pointerup', onPointerUp);
+        domElement.addEventListener('pointercancel', onPointerUp);
+        domElement.addEventListener('pointerleave', onPointerUp);
+        domElement.addEventListener('pointermove', onPointerMove);
+        domElement.addEventListener('wheel', onWheel, {passive: false});
+
+        return {
+            dispose: function() {
+                domElement.removeEventListener('pointerdown', onPointerDown);
+                domElement.removeEventListener('pointerup', onPointerUp);
+                domElement.removeEventListener('pointercancel', onPointerUp);
+                domElement.removeEventListener('pointerleave', onPointerUp);
+                domElement.removeEventListener('pointermove', onPointerMove);
+                domElement.removeEventListener('wheel', onWheel);
+            },
+            isDragging: function() {
+                return orbitDragging.v;
+            },
+            applyOrbit: applyOrbit,
+            /** Rotación lenta cuando el usuario no arrastra (p. ej. vista del tajo). */
+            spinIdle: function(rate) {
+                var r = rate != null ? rate : 0.00022;
+                if (!orbitDragging.v) {
+                    theta += r;
+                    applyOrbit();
+                }
+            }
+        };
+    }
+
+    /**
      * Álgebra / voladura: frente de malla con barrenos (2×2 resaltado) — sin rieles de túnel.
      */
     function mountBlastFace(viewport, activity, theme, THREE) {
@@ -139,13 +252,16 @@ define([], function() {
         rightB.position.x = 2.55;
         scene.add(rightB);
 
-        var mx = 0;
-        var my = 0;
-        function onMove(e) {
-            mx += e.movementX * 0.002;
-            my += e.movementY * 0.001;
-        }
-        renderer.domElement.addEventListener('mousemove', onMove);
+        var lookT = new THREE.Vector3(0, 3.1, -4);
+        var orbitBlast = attachTrackpadOrbit(THREE, renderer.domElement, camera, lookT, {
+            theta: 0.2,
+            phi: 0.35,
+            radius: 9.5,
+            minR: 4.5,
+            maxR: 22,
+            minPhi: 0.12,
+            maxPhi: 1.35
+        });
 
         var t0 = performance.now();
         var animId;
@@ -156,9 +272,6 @@ define([], function() {
             }
             animId = requestAnimationFrame(loop);
             var tsec = (now - t0) * 0.001;
-            camera.position.x = Math.sin(tsec * 0.25 + mx) * 0.45;
-            camera.position.y = 2.8 + Math.sin(tsec * 0.4) * 0.06 + my * 0.3;
-            camera.lookAt(0, 3.1, -4);
             var ci;
             for (ci = 0; ci < charges.length; ci++) {
                 charges[ci].material.emissiveIntensity = 0.35 + Math.sin(tsec * 3 + ci) * 0.15;
@@ -191,7 +304,7 @@ define([], function() {
                     ro.disconnect();
                 }
                 window.removeEventListener('resize', onResize);
-                renderer.domElement.removeEventListener('mousemove', onMove);
+                orbitBlast.dispose();
                 renderer.dispose();
                 if (host.contains(renderer.domElement)) {
                     host.removeChild(renderer.domElement);
@@ -411,13 +524,16 @@ define([], function() {
         scene.add(dust);
 
         var ang = 0;
-        var mx = 0;
-        var my = 0;
-        var onMove = function(e) {
-            mx += e.movementX * 0.0018;
-            my += e.movementY * 0.0009;
-        };
-        renderer.domElement.addEventListener('mousemove', onMove);
+        var tunnelLook = new THREE.Vector3(0, -0.5, -22);
+        var orbitTunnel = attachTrackpadOrbit(THREE, renderer.domElement, camera, tunnelLook, {
+            theta: 0.12,
+            phi: 0.28,
+            radius: 16,
+            minR: 6,
+            maxR: 48,
+            minPhi: 0.08,
+            maxPhi: 1.25
+        });
 
         var animId;
         var running = true;
@@ -429,9 +545,6 @@ define([], function() {
             animId = requestAnimationFrame(loop);
             var tsec = (now - start) * 0.001;
             ang += 0.0022;
-            camera.position.x = Math.sin(ang * 0.7 + mx) * 2.8;
-            camera.position.y = 2.2 + Math.sin(tsec * 0.4) * 0.08 + my;
-            camera.lookAt(0, -0.5, -12 - ang * 6);
             spot.intensity = 2.2 + Math.sin(tsec * 2.1) * 0.35;
             fill.intensity = 0.75 + Math.sin(tsec * 1.7) * 0.15;
             headlamp.intensity = 5 + Math.sin(tsec * 3.1) * 0.4;
@@ -488,7 +601,7 @@ define([], function() {
                     ro.disconnect();
                 }
                 window.removeEventListener('resize', onResize);
-                renderer.domElement.removeEventListener('mousemove', onMove);
+                orbitTunnel.dispose();
                 renderer.dispose();
                 if (host.contains(renderer.domElement)) {
                     host.removeChild(renderer.domElement);
@@ -507,12 +620,23 @@ define([], function() {
         var h = dim0.h;
 
         var scene = new THREE.Scene();
-        var sky = 0x8eb4dc;
-        scene.background = new THREE.Color(sky);
-        scene.fog = new THREE.Fog(sky, 35, 220);
+        var fogCol = 0xb4bcc8;
+        scene.fog = new THREE.Fog(fogCol, 42, 260);
+        var gradCv = document.createElement('canvas');
+        gradCv.width = 8;
+        gradCv.height = 256;
+        var gcx = gradCv.getContext('2d');
+        var gLin = gcx.createLinearGradient(0, 0, 0, 256);
+        gLin.addColorStop(0, '#dce4ee');
+        gLin.addColorStop(0.45, '#aeb8c8');
+        gLin.addColorStop(1, '#8a9098');
+        gcx.fillStyle = gLin;
+        gcx.fillRect(0, 0, 8, 256);
+        var skyTex = new THREE.CanvasTexture(gradCv);
+        scene.background = skyTex;
 
-        var camera = new THREE.PerspectiveCamera(48, w / h, 0.5, 600);
-        camera.position.set(36, 22, 36);
+        var camera = new THREE.PerspectiveCamera(46, w / h, 0.5, 600);
+        camera.position.set(40, 24, 44);
 
         var renderer = new THREE.WebGLRenderer({antialias: true, alpha: false});
         renderer.setSize(w, h);
@@ -520,39 +644,48 @@ define([], function() {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.12;
+        renderer.toneMappingExposure = 1.05;
         renderer.domElement.style.display = 'block';
         host.appendChild(renderer.domElement);
 
-        var sun = new THREE.DirectionalLight(0xfff2dd, 1.45);
-        sun.position.set(-40, 90, 30);
+        var sun = new THREE.DirectionalLight(0xf2f6ff, 1.25);
+        sun.position.set(-48, 96, 36);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 2048;
         sun.shadow.mapSize.height = 2048;
         sun.shadow.camera.near = 10;
-        sun.shadow.camera.far = 220;
-        sun.shadow.camera.left = -80;
-        sun.shadow.camera.right = 80;
-        sun.shadow.camera.top = 80;
-        sun.shadow.camera.bottom = -80;
+        sun.shadow.camera.far = 240;
+        sun.shadow.camera.left = -90;
+        sun.shadow.camera.right = 90;
+        sun.shadow.camera.top = 90;
+        sun.shadow.camera.bottom = -90;
         scene.add(sun);
-        scene.add(new THREE.HemisphereLight(0xb8c4d4, 0x5a4a38, 0.5));
+        scene.add(new THREE.HemisphereLight(0xc8d0dc, 0x6a6058, 0.55));
+        scene.add(new THREE.AmbientLight(0x9aa4b0, 0.35));
 
         var ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(320, 320),
-            new THREE.MeshStandardMaterial({color: 0x6e5a42, roughness: 0.96, metalness: 0.02})
+            new THREE.PlaneGeometry(340, 340),
+            new THREE.MeshStandardMaterial({color: 0x8f9096, roughness: 0.94, metalness: 0.03})
         );
         ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -0.08;
+        ground.position.y = -0.06;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        var sunMesh = new THREE.Mesh(
-            new THREE.SphereGeometry(10, 20, 20),
-            new THREE.MeshBasicMaterial({color: 0xfff2cc})
-        );
-        sunMesh.position.set(-38, 92, 28);
-        scene.add(sunMesh);
+        /* Curvas de nivel en terreno (estilo plano / MDT didáctico). */
+        var contourMat = new THREE.LineBasicMaterial({color: 0x1a4a8c, transparent: true, opacity: 0.92});
+        var cr;
+        for (cr = 38; cr <= 118; cr += 14) {
+            var pts = [];
+            var seg = 72;
+            var sgi;
+            for (sgi = 0; sgi <= seg; sgi++) {
+                var a = (sgi / seg) * Math.PI * 2;
+                pts.push(new THREE.Vector3(Math.cos(a) * cr, 0.04, Math.sin(a) * cr));
+            }
+            var cg = new THREE.BufferGeometry().setFromPoints(pts);
+            scene.add(new THREE.LineLoop(cg, contourMat));
+        }
 
         /* Excavadora / palas (simplificada) */
         var excav = new THREE.Group();
@@ -589,47 +722,56 @@ define([], function() {
         excav.position.set(24, 0.2, 20);
         scene.add(excav);
 
+        var pitWall = new THREE.MeshStandardMaterial({
+            color: 0x6d6864,
+            roughness: 0.93,
+            metalness: 0.05,
+            side: THREE.DoubleSide,
+            flatShading: false
+        });
+        var benchLineMat = new THREE.LineBasicMaterial({color: 0x2563eb, transparent: true, opacity: 0.95});
+        var bermLineMat = new THREE.LineBasicMaterial({color: 0x60a5fa, transparent: true, opacity: 0.88});
+
         var tier;
         for (var level = 0; level < 8; level++) {
             var r0 = 26 - level * 2.8;
             var r1 = 24 - level * 2.8;
+            if (r1 < 3) {
+                break;
+            }
             tier = new THREE.Mesh(
-                new THREE.CylinderGeometry(r0, r1, 2.8, 48, 1, true),
-                new THREE.MeshStandardMaterial({
-                    color: new THREE.Color().setHSL(0.07 + level * 0.028, 0.42, 0.26 + level * 0.03),
-                    roughness: 0.94,
-                    metalness: 0.04,
-                    side: THREE.DoubleSide
-                })
+                new THREE.CylinderGeometry(r0, r1, 2.8, 40, 1, true),
+                pitWall
             );
             tier.position.y = level * 2.6;
             tier.castShadow = true;
             tier.receiveShadow = true;
             scene.add(tier);
-        }
-
-        /* Berma: anillo claro en borde de cada banco */
-        var lev;
-        for (lev = 0; lev < 8; lev++) {
-            var rLip = 26 - lev * 2.8 + 0.08;
-            if (rLip < 4) {
-                break;
+            /* Borde de banco = curva de nivel (referencia tipo plano). */
+            var bpts = [];
+            var bseg = 64;
+            var bi;
+            for (bi = 0; bi <= bseg; bi++) {
+                var ba = (bi / bseg) * Math.PI * 2;
+                bpts.push(new THREE.Vector3(Math.cos(ba) * r0, level * 2.6 + 1.38, Math.sin(ba) * r0));
             }
-            var berm = new THREE.Mesh(
-                new THREE.TorusGeometry(rLip, 0.32, 8, 56),
-                new THREE.MeshStandardMaterial({color: 0xa89278, roughness: 0.88, metalness: 0.02})
-            );
-            berm.rotation.x = Math.PI / 2;
-            berm.position.y = lev * 2.6 + 1.32;
-            berm.castShadow = true;
-            berm.receiveShadow = true;
-            scene.add(berm);
+            scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bpts), benchLineMat));
+            /* Berma: anillo interior más claro (solo línea). */
+            var rBerm = r0 - 1.1;
+            if (rBerm > 2.5) {
+                var bpts2 = [];
+                for (bi = 0; bi <= bseg; bi++) {
+                    ba = (bi / bseg) * Math.PI * 2;
+                    bpts2.push(new THREE.Vector3(Math.cos(ba) * rBerm, level * 2.6 + 1.4, Math.sin(ba) * rBerm));
+                }
+                scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(bpts2), bermLineMat));
+            }
         }
 
-        /* Rampa de acceso (volumen oscuro en espiral) */
+        /* Rampa de acceso (volumen oscuro, más legible que el resto). */
         var rampMesh = new THREE.Mesh(
-            new THREE.BoxGeometry(5.5, 0.4, 58),
-            new THREE.MeshStandardMaterial({color: 0x33302c, roughness: 0.92})
+            new THREE.BoxGeometry(5.5, 0.45, 58),
+            new THREE.MeshStandardMaterial({color: 0x2a2826, roughness: 0.94, metalness: 0.06})
         );
         rampMesh.rotation.set(-0.38, 0.72, 0.05);
         rampMesh.position.set(40, 12, 36);
@@ -676,33 +818,16 @@ define([], function() {
         dustP.geometry.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
         scene.add(dustP);
 
-        var pitMx = 0;
-        var pitMy = 0;
-        var pitDrag = false;
-        var pitLastX = 0;
-        var pitLastY = 0;
-        var pitEl = renderer.domElement;
-        function pitOnDown(e) {
-            pitDrag = true;
-            pitLastX = e.clientX;
-            pitLastY = e.clientY;
-        }
-        function pitOnUp() {
-            pitDrag = false;
-        }
-        function pitOnMove(e) {
-            if (!pitDrag) {
-                return;
-            }
-            pitMx += (e.clientX - pitLastX) * 0.0045;
-            pitMy += (e.clientY - pitLastY) * 0.003;
-            pitLastX = e.clientX;
-            pitLastY = e.clientY;
-        }
-        pitEl.addEventListener('pointerdown', pitOnDown);
-        pitEl.addEventListener('pointerup', pitOnUp);
-        pitEl.addEventListener('pointerleave', pitOnUp);
-        pitEl.addEventListener('pointermove', pitOnMove);
+        var pitCenter = new THREE.Vector3(0, 9, 0);
+        var orbitPit = attachTrackpadOrbit(THREE, renderer.domElement, camera, pitCenter, {
+            theta: 0.95,
+            phi: 0.52,
+            radius: 52,
+            minR: 22,
+            maxR: 120,
+            minPhi: 0.18,
+            maxPhi: 1.38
+        });
 
         var camAng = 0;
         var pitAnim;
@@ -713,14 +838,7 @@ define([], function() {
             }
             pitAnim = requestAnimationFrame(loop);
             camAng += 0.0012;
-            var elev = 0.38 + Math.sin(camAng * 0.55) * 0.05 + pitMy;
-            elev = Math.max(0.2, Math.min(0.78, elev));
-            var theta = camAng + pitMx;
-            var rad = 38;
-            camera.position.x = Math.cos(theta) * rad * Math.cos(elev);
-            camera.position.z = Math.sin(theta) * rad * Math.cos(elev);
-            camera.position.y = rad * Math.sin(elev) + 9;
-            camera.lookAt(0, 9, 0);
+            orbitPit.spinIdle(0.00018);
             trucks.forEach(function(tk, idx) {
                 tk.rotation.y += 0.008 + idx * 0.001;
                 tk.position.y = 1 + Math.sin(camAng * 3 + idx) * 0.15;
@@ -728,7 +846,6 @@ define([], function() {
             excav.rotation.y = Math.sin(camAng * 1.8) * 0.45;
             exBoom.rotation.x = -0.35 + Math.sin(camAng * 2.4) * 0.12;
             exBucket.rotation.x = 0.25 + Math.sin(camAng * 2.4 + 0.5) * 0.08;
-            sunMesh.position.y = 92 + Math.sin(camAng) * 0.8;
             var dposArr = dustP.geometry.attributes.position.array;
             for (var di = 0; di < dc; di++) {
                 dposArr[di * 3 + 1] += 0.02 + Math.sin(di * 0.1 + camAng * 5) * 0.008;
@@ -768,10 +885,8 @@ define([], function() {
                     roPit.disconnect();
                 }
                 window.removeEventListener('resize', onResize);
-                pitEl.removeEventListener('pointerdown', pitOnDown);
-                pitEl.removeEventListener('pointerup', pitOnUp);
-                pitEl.removeEventListener('pointerleave', pitOnUp);
-                pitEl.removeEventListener('pointermove', pitOnMove);
+                orbitPit.dispose();
+                skyTex.dispose();
                 renderer.dispose();
                 if (host.contains(renderer.domElement)) {
                     host.removeChild(renderer.domElement);

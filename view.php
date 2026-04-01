@@ -87,6 +87,7 @@ $bootstrap = [
         'sceneLegendAlgebra' => $str('scene_legend_algebra'),
         'sceneLegendTunnel' => $str('scene_legend_tunnel'),
         'sceneLegendPit' => $str('scene_legend_pit'),
+        'sceneLegendPitBerm' => $str('scene_legend_pit_berm'),
         'fullscreen' => $str('lab_fullscreen'),
         'exitFullscreen' => $str('lab_exit_fullscreen'),
     ],

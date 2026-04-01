@@ -113,7 +113,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
         viewport.appendChild(leg);
     }
 
-    function appendPitLegend(viewport, t) {
+    function appendPitLegend(viewport, t, bermRefM) {
         var prev = viewport.querySelector('.ml-3d-legend');
         if (prev) {
             prev.remove();
@@ -121,7 +121,12 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
         var leg = document.createElement('div');
         leg.className = 'ml-3d-legend';
         leg.setAttribute('role', 'note');
-        leg.textContent = t.sceneLegendPit || '';
+        var base = t.sceneLegendPit || '';
+        if (bermRefM != null && t.sceneLegendPitBerm) {
+            leg.textContent = base + ' ' + t.sceneLegendPitBerm.replace('##', String(bermRefM));
+        } else {
+            leg.textContent = base;
+        }
         viewport.appendChild(leg);
     }
 
@@ -168,7 +173,7 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
             return;
         }
         scenes3d.mountPit(shell.viewport, activity, theme, THREE);
-        appendPitLegend(shell.viewport, t);
+        appendPitLegend(shell.viewport, t, labpractices.getPitBermRefMeters(cfg.activityKey));
 
         var hostP = shell.aside.querySelector('#ml-guided-pit');
         if (hostP) {

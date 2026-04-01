@@ -96,7 +96,7 @@ $string['lab_feedback_retry'] = 'Not quite — review the hint and try again.';
 $string['lab_check'] = 'Check answer';
 $string['lab_next'] = 'Continue';
 $string['lab_hint'] = 'Hint';
-$string['lab_3d_drag'] = 'Drag to orbit · scroll to zoom';
+$string['lab_3d_drag'] = 'Orbit: click-drag (or two-finger drag on trackpad). Zoom: mouse wheel or vertical scroll; on trackpad, pinch or Ctrl+scroll often works.';
 $string['lab_conceptual'] = 'Educational simulation — not a substitute for field studies or legal/engineering sign-off.';
 $string['lab_what_to_do'] = 'Complete the guided practice (right panel): checklists, work sequence, calculations, or questions. Use the 3D view for context. Footer progress updates as you finish steps; then save or submit your grade.';
 $string['practice_kicker'] = 'Guided practice — complete all 3 steps (competency demonstration)';
@@ -108,7 +108,8 @@ $string['office_sensitivity_blurb'] = 'Adjust investment, discount rate, and hor
 $string['english_hud_prompt'] = 'Radio briefing — complete the guided practice on the right (C5 technical communication).';
 $string['scene_legend_algebra'] = '3D: blast face with drill holes; frame = 2×2 charge matrix. Not a rail tunnel.';
 $string['scene_legend_tunnel'] = '3D: gallery with rails and ground support (underground operations).';
-$string['scene_legend_pit'] = '3D: open pit — ring benches; light torus = berms; dark strip = ramp; equipment on levels.';
+$string['scene_legend_pit'] = '3D: open pit (technical-style view) — blue lines = benches/berms; dark strip = ramp; outer contours = terrain; equipment on levels.';
+$string['scene_legend_pit_berm'] = 'Reference berm width (step 1): ## m.';
 $string['lab_fullscreen'] = 'Full screen';
 $string['lab_exit_fullscreen'] = 'Exit full screen';
 $string['lab_flow_instruction'] = 'Activate the stages in order (mine to product). Each click must follow the correct metallurgical sequence.';

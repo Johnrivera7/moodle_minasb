@@ -96,7 +96,7 @@ $string['lab_feedback_retry'] = 'Aún no — revisa la pista e inténtalo de nue
 $string['lab_check'] = 'Comprobar';
 $string['lab_next'] = 'Siguiente';
 $string['lab_hint'] = 'Pista';
-$string['lab_3d_drag'] = 'Arrastra para orbitar · rueda para zoom';
+$string['lab_3d_drag'] = 'Orbitar: clic y arrastre (o dos dedos en trackpad). Zoom: rueda del mouse o desplazamiento vertical; en trackpad suele funcionar pellizco o Ctrl+desplazamiento.';
 $string['lab_conceptual'] = 'Simulación educativa — no sustituye faena real ni signos profesionales o legales.';
 $string['lab_what_to_do'] = 'Ejecuta la práctica guiada (panel derecho): checklist, orden de trabajo, cálculos o preguntas. Usa el 3D para contextualizar. El avance del pie de página se actualiza al completar pasos; luego guarda o envía calificación.';
 $string['practice_kicker'] = 'Práctica guiada — completa los 3 pasos (demostración de competencias)';
@@ -108,7 +108,8 @@ $string['office_sensitivity_blurb'] = 'Ajusta inversión, tasa y horizonte para 
 $string['english_hud_prompt'] = 'Briefing de radio en faena — completa la práctica guiada a la derecha (C5 comunicación técnica).';
 $string['scene_legend_algebra'] = 'Escena 3D: frente de voladura con barrenos; el marco simboliza la matriz 2×2 (cargas). No es túnel con rieles.';
 $string['scene_legend_tunnel'] = 'Escena 3D: galería con rieles, sostenimiento y señalización (faena subterránea).';
-$string['scene_legend_pit'] = 'Escena 3D: tajo — plataformas en anillos = bancos; aros claros = bermas; franja oscura = rampa; equipos en niveles.';
+$string['scene_legend_pit'] = 'Escena 3D: tajo (vista tipo plano) — líneas azules = bancos y bermas; franja oscura = rampa; curvas exteriores = terreno; equipos en niveles.';
+$string['scene_legend_pit_berm'] = 'Berma de referencia (paso 1): ## m.';
 $string['lab_fullscreen'] = 'Pantalla completa';
 $string['lab_exit_fullscreen'] = 'Salir de pantalla completa';
 $string['lab_flow_instruction'] = 'Activa las etapas en orden (de mina a producto). Cada clic debe seguir la secuencia metalúrgica correcta.';
