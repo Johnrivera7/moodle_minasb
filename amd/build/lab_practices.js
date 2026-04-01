@@ -675,7 +675,7 @@ define([], function() {
             return [
                 {
                     type: 'order_drag',
-                    title: 'Paso 1 · Ciclo de mina a cielo abierto',
+                    title: 'Paso 1 · Ciclo de mina a tajo abierto',
                     introLangKey: 'practiceCycleOrderIntro',
                     labels: ['Perforación', 'Carguío (explosivos)', 'Carga y transporte', 'Acopio / botadero'],
                     correctSeq: [0, 1, 2, 3]

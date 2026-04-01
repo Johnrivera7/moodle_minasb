@@ -20,7 +20,7 @@ El motor 3D se carga desde `mod/minaslab/js/three.min.js`. El bundle oficial de 
 ## Interacción y escenas 3D
 
 - **Navegación**: órbita con arrastre (ratón o trackpad), zoom con rueda; en trackpad suele funcionar pellizco o **Ctrl + desplazamiento** (comportamiento similar a “zoom con Ctrl” en navegadores).
-- **Tajo a cielo abierto (`pit_3d`)**:
+- **Tajo abierto (`pit_3d`)**:
   - **Vistas rápidas**: ISO, planta aproximada y perfil (animación suave de cámara).
   - **Medición**: modo “Medir distancia” — dos clics sobre el modelo (terreno, bancos, rampa, equipos) para ver una distancia en metros en el escenario didáctico (1 unidad ≈ 1 m).
   - **Capas**: mostrar u ocultar **contornos** (líneas de nivel y bancos) y **equipos** (camiones y excavadora).
