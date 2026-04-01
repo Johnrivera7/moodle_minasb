@@ -2363,7 +2363,6 @@ define([], function() {
         var truckRight = new THREE.Vector3();
         var truckUp = new THREE.Vector3();
         var truckWU = new THREE.Vector3(0, 1, 0);
-        var truckAU = new THREE.Vector3(0, 0, 1);
 
         function loop(now) {
             if (!pitRunning) {
@@ -2408,14 +2407,14 @@ define([], function() {
                     dir.set(0, 0, 1);
                 }
                 rt.g.position.set(p.x, p.y + 0.32, p.z);
-                /* +Z local = sentido de marcha; base ortonormal con “arriba” ≈ Y mundo → roll estable (sin vuelta lateral 360°). */
+                /* +Z local = marcha. Lateral = up×tangente (igual que la franja de rampa); up = forward×right (mano derecha). */
                 truckFwd.copy(dir);
-                truckRight.crossVectors(truckFwd, truckWU);
+                truckRight.crossVectors(truckWU, truckFwd);
                 if (truckRight.lengthSq() < 1e-10) {
-                    truckRight.crossVectors(truckFwd, truckAU);
+                    truckRight.set(-truckFwd.z, 0, truckFwd.x);
                 }
                 truckRight.normalize();
-                truckUp.crossVectors(truckRight, truckFwd).normalize();
+                truckUp.crossVectors(truckFwd, truckRight).normalize();
                 truckBasisMat.makeBasis(truckRight, truckUp, truckFwd);
                 rt.g.quaternion.setFromRotationMatrix(truckBasisMat);
             });
