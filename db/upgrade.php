@@ -57,5 +57,10 @@ function xmldb_minaslab_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026033105, 'minaslab');
     }
 
+    if ($oldversion < 2026033106) {
+        // Evento course_module_viewed del plugin; intro del editor.
+        upgrade_mod_savepoint(true, 2026033106, 'minaslab');
+    }
+
     return true;
 }

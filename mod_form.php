@@ -4,6 +4,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
+require_once(__DIR__ . '/lib.php');
 
 class mod_minaslab_mod_form extends moodleform_mod {
 
@@ -43,5 +44,23 @@ class mod_minaslab_mod_form extends moodleform_mod {
             $errors['activity_key'] = get_string('invalidactivity', 'mod_minaslab');
         }
         return $errors;
+    }
+
+    public function data_preprocessing(&$defaultvalues) {
+        parent::data_preprocessing($defaultvalues);
+
+        if ($this->current->instance) {
+            $context = context_module::instance($this->current->cm->id);
+            $opts = minaslab_intro_editor_options($context);
+            $defaultvalues = file_prepare_standard_editor(
+                $defaultvalues,
+                'intro',
+                $opts,
+                $context,
+                'mod_minaslab',
+                'intro',
+                0
+            );
+        }
     }
 }

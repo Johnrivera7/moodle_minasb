@@ -16,7 +16,7 @@ require_login($course, true, $cm);
 $context = context_module::instance($cm->id);
 require_capability('mod/minaslab:view', $context);
 
-$event = \core\event\course_module_viewed::create([
+$event = \mod_minaslab\event\course_module_viewed::create([
     'objectid' => $minaslab->id,
     'context' => $context,
 ]);

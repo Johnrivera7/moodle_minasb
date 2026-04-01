@@ -7,6 +7,23 @@ defined('MOODLE_INTERNAL') || die();
  * @param string $feature
  * @return bool|null
  */
+/**
+ * Opciones del editor HTML de la descripción (intro), coherentes con mod_form.
+ *
+ * @param \context_module $context
+ * @return array
+ */
+function minaslab_intro_editor_options(\context_module $context): array {
+    return [
+        'subdirs' => 0,
+        'maxfiles' => EDITOR_UNLIMITED_FILES,
+        'maxbytes' => 0,
+        'context' => $context,
+        'noclean' => 1,
+        'trusttext' => false,
+    ];
+}
+
 function minaslab_supports(string $feature) {
     switch ($feature) {
         case FEATURE_MOD_INTRO:
@@ -33,7 +50,15 @@ function minaslab_add_instance(object $data, $mform = null): int {
         $data->activity_key = \mod_minaslab\local\activity_catalog::default_key();
     }
 
+    if (!property_exists($data, 'intro') || $data->intro === null) {
+        $data->intro = '';
+    }
+    if (!property_exists($data, 'introformat')) {
+        $data->introformat = FORMAT_HTML;
+    }
+
     $id = $DB->insert_record('minaslab', $data);
+
     $minaslab = $DB->get_record('minaslab', ['id' => $id]);
     minaslab_grade_item_update($minaslab);
     return $id;
@@ -49,10 +74,16 @@ function minaslab_update_instance(object $data, $mform = null): bool {
         $data->activity_key = \mod_minaslab\local\activity_catalog::default_key();
     }
 
-    $ok = $DB->update_record('minaslab', $data);
+    $DB->update_record('minaslab', $data);
+
+    $context = context_module::instance($data->coursemodule);
+    $opts = minaslab_intro_editor_options($context);
+    $data = file_postupdate_standard_editor($data, 'intro', $opts, $context, 'mod_minaslab', 'intro', 0);
+    $DB->update_record('minaslab', $data);
+
     $minaslab = $DB->get_record('minaslab', ['id' => $data->instance]);
     minaslab_grade_item_update($minaslab);
-    return $ok;
+    return true;
 }
 
 function minaslab_delete_instance(int $id): bool {
@@ -92,18 +123,6 @@ function minaslab_get_coursemodule_info($coursemodule) {
 }
 
 /**
- * Sirve archivos incrustados en la descripción (intro) de la actividad.
- *
- * @param stdClass $course
- * @param stdClass $cm
- * @param context $context
- * @param string $filearea
- * @param array $args
- * @param bool $forcedownload
- * @param array $options
- * @return bool|null
- */
-/**
  * Enlace al informe MinasLab en el menú del curso (docentes con permiso).
  *
  * @param navigation_node $navigation
@@ -125,6 +144,18 @@ function minaslab_extend_navigation_course($navigation, $course, $context) {
     );
 }
 
+/**
+ * Sirve archivos incrustados en la descripción (intro) de la actividad.
+ *
+ * @param stdClass $course
+ * @param stdClass $cm
+ * @param context $context
+ * @param string $filearea
+ * @param array $args
+ * @param bool $forcedownload
+ * @param array $options
+ * @return bool|null
+ */
 function minaslab_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload, array $options = []) {
     if ($context->contextlevel != CONTEXT_MODULE) {
         return false;
