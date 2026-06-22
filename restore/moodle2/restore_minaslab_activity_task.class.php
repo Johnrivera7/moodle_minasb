@@ -14,7 +14,7 @@ class restore_minaslab_activity_task extends restore_activity_task {
     }
 
     protected function define_my_steps() {
-        $this->add_step(new restore_minaslab_activity_structure_step('minaslab_structure'));
+        $this->add_step(new restore_minaslab_activity_structure_step('minaslab_structure', 'minaslab.xml'));
     }
 
     /**
@@ -28,6 +28,9 @@ class restore_minaslab_activity_task extends restore_activity_task {
      * @return array
      */
     public static function define_decode_rules() {
-        return [];
+        return [
+            new restore_decode_rule('MINASLABVIEWBYID', '/mod/minaslab/view.php?id=$1', 'course_module'),
+            new restore_decode_rule('MINASLABINDEX', '/mod/minaslab/index.php?id=$1', 'course'),
+        ];
     }
 }

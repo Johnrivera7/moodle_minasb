@@ -14,7 +14,7 @@ class backup_minaslab_activity_task extends backup_activity_task {
     }
 
     protected function define_my_steps() {
-        $this->add_step(new backup_minaslab_activity_structure_step('minaslab_structure'));
+        $this->add_step(new backup_minaslab_activity_structure_step('minaslab_structure', 'minaslab.xml'));
     }
 
     /**
@@ -22,6 +22,16 @@ class backup_minaslab_activity_task extends backup_activity_task {
      * @return string
      */
     public static function encode_content_links($content) {
+        global $CFG;
+
+        $base = preg_quote($CFG->wwwroot, '/');
+
+        $search = '/(' . $base . '\/mod\/minaslab\/index.php\?id=)([0-9]+)/';
+        $content = preg_replace($search, '$@MINASLABINDEX*$2@$', $content);
+
+        $search = '/(' . $base . '\/mod\/minaslab\/view.php\?id=)([0-9]+)/';
+        $content = preg_replace($search, '$@MINASLABVIEWBYID*$2@$', $content);
+
         return $content;
     }
 }

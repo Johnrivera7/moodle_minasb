@@ -77,5 +77,10 @@ function xmldb_minaslab_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026033109, 'minaslab');
     }
 
+    if ($oldversion < 2026033140) {
+        // Backup/restore Moodle 2 API: minaslab.xml y prepare_activity_structure().
+        upgrade_mod_savepoint(true, 2026033140, 'minaslab');
+    }
+
     return true;
 }

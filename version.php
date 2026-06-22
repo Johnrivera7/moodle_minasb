@@ -9,7 +9,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_minaslab';
-$plugin->version   = 2026033139;
+$plugin->version   = 2026033140;
 $plugin->requires  = 2024100700; // Moodle 4.5+.
 $plugin->maturity  = MATURITY_BETA;
-$plugin->release   = '0.3.0';
+$plugin->release   = '0.3.1';
