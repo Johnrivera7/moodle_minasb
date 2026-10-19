@@ -29,7 +29,7 @@
  */
 /* eslint-disable no-bitwise */
 // Las operaciones a nivel de bits son intencionales: generador pseudoaleatorio y ruido de gradiente.
-define([], function() {
+define(['mod_minaslab/eval_models'], function(models) {
     'use strict';
 
     // ---------------------------------------------------------------------
@@ -1319,289 +1319,56 @@ define([], function() {
         return mesh;
     };
 
-    /**
-     * Neumático con banda de rodado.
-     *
-     * @param {Object} THREE
-     * @param {Object} M
-     * @param {number} radius
-     * @param {number} width
-     */
-    const wheel = function(THREE, M, radius, width) {
-        const g = new THREE.Group();
-        const tire = new THREE.Mesh(new THREE.TorusGeometry(radius * 0.72, radius * 0.28, 14, 36), M.tire);
-        tire.scale.z = width / (radius * 0.56);
-        tire.castShadow = true;
-        g.add(tire);
-        const rim = cyl(THREE, radius * 0.5, radius * 0.5, width * 0.9, M.rim, 18);
-        rim.rotation.x = Math.PI / 2;
-        g.add(rim);
-        // Tacos de la banda.
-        const lugGeo = new THREE.BoxGeometry(radius * 0.16, radius * 0.08, width * 0.95);
-        for (let i = 0; i < 18; i++) {
-            const a = i / 18 * Math.PI * 2;
-            const lug = new THREE.Mesh(lugGeo, M.tire);
-            lug.position.set(Math.cos(a) * radius * 0.98, Math.sin(a) * radius * 0.98, 0);
-            lug.rotation.z = a;
-            g.add(lug);
-        }
-        return g;
-    };
+    // Los equipos detallados viven en mod_minaslab/eval_models; aquí se mantiene la
+    // misma interfaz (THREE, M, ...) que usan las escenas.
 
     /**
-     * Camión de extracción de alto tonelaje. Dimensiones escaladas por carga útil.
+     * Camión de extracción de alto tonelaje.
      *
      * @param {Object} THREE
-     * @param {Object} M materiales
+     * @param {Object} M materiales (no se usa; compatibilidad)
      * @param {number} payload t
      * @param {boolean} loaded con carga
-     * @returns {Object} grupo orientado hacia +x
+     * @param {string} number número interno
+     * @returns {Object}
      */
-    const haulTruck = function(THREE, M, payload, loaded) {
-        const s = Math.pow((payload || 220) / 227, 0.33);
-        const g = new THREE.Group();
-        const L = 13.0 * s;
-        const W = 7.4 * s;
-        const tireR = 1.8 * s;
-        // Chasis.
-        const frame = box(THREE, L * 0.85, 1.1 * s, W * 0.42, M.darkSteel);
-        frame.position.set(0, tireR * 1.05, 0);
-        g.add(frame);
-        // Tolva.
-        const bedShape = new THREE.Shape();
-        bedShape.moveTo(-L * 0.42, 0);
-        bedShape.lineTo(L * 0.38, 0);
-        bedShape.lineTo(L * 0.5, 2.4 * s);
-        bedShape.lineTo(L * 0.5, 3.6 * s);
-        bedShape.lineTo(-L * 0.47, 3.2 * s);
-        bedShape.lineTo(-L * 0.47, 1.2 * s);
-        bedShape.closePath();
-        const bedGeo = new THREE.ExtrudeGeometry(bedShape, {depth: W, bevelEnabled: false});
-        bedGeo.translate(0, 0, -W / 2);
-        const bed = new THREE.Mesh(bedGeo, M.cat);
-        bed.castShadow = true;
-        bed.position.set(-L * 0.05, tireR * 1.55, 0);
-        g.add(bed);
-        // Visera (canopy) sobre la cabina.
-        const canopy = box(THREE, 2.6 * s, 0.25 * s, W, M.cat);
-        canopy.position.set(L * 0.52, tireR * 1.55 + 3.5 * s, 0);
-        g.add(canopy);
-        if (loaded) {
-            const load = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-                new THREE.MeshStandardMaterial({color: 0x8a6c55, roughness: 1}));
-            load.scale.set(L * 0.4, 1.6 * s, W * 0.42);
-            load.position.set(-L * 0.05, tireR * 1.55 + 2.6 * s, 0);
-            load.castShadow = true;
-            g.add(load);
-        }
-        // Cubierta delantera, radiador y cabina.
-        const deck = box(THREE, 2.6 * s, 0.3 * s, W * 1.02, M.cat);
-        deck.position.set(L * 0.38, tireR * 2.05, 0);
-        g.add(deck);
-        const engine = box(THREE, 2.2 * s, 2.0 * s, W * 0.36, M.catDark);
-        engine.position.set(L * 0.38, tireR * 1.35, 0);
-        g.add(engine);
-        const grille = box(THREE, 0.3 * s, 1.7 * s, W * 0.34, M.darkSteel);
-        grille.position.set(L * 0.5, tireR * 1.4, 0);
-        g.add(grille);
-        const cab = box(THREE, 2.0 * s, 2.0 * s, 2.2 * s, M.cat);
-        cab.position.set(L * 0.38, tireR * 2.05 + 1.15 * s, -W * 0.33);
-        g.add(cab);
-        const win = box(THREE, 2.05 * s, 1.0 * s, 2.25 * s, M.glass);
-        win.position.set(L * 0.38, tireR * 2.05 + 1.4 * s, -W * 0.33);
-        g.add(win);
-        // Escalera diagonal y barandas.
-        const ladder = box(THREE, 0.15 * s, 0.15 * s, 4.0 * s, M.darkSteel);
-        ladder.position.set(L * 0.5, tireR * 1.4, 0);
-        ladder.rotation.x = 0.6;
-        g.add(ladder);
-        const rail = box(THREE, 2.6 * s, 0.08 * s, 0.08 * s, M.white);
-        rail.position.set(L * 0.38, tireR * 2.05 + 1.0 * s, W * 0.5);
-        g.add(rail);
-        // Luces.
-        const lightMat = new THREE.MeshStandardMaterial({color: 0xffffff, emissive: 0xfff4c8, emissiveIntensity: 1.2});
-        [-1, 1].forEach(function(sd) {
-            const l = box(THREE, 0.1, 0.3 * s, 0.5 * s, lightMat);
-            l.position.set(L * 0.515, tireR * 1.95, sd * W * 0.3);
-            g.add(l);
-        });
-        // Ruedas: 2 delanteras simples, 4 traseras duales.
-        const wf = wheel(THREE, M, tireR, 1.2 * s);
-        [-1, 1].forEach(function(sd) {
-            const w1 = wf.clone();
-            w1.position.set(L * 0.33, tireR, sd * (W / 2 - 0.65 * s));
-            g.add(w1);
-            [0.0, 1.3].forEach(function(off) {
-                const w2 = wf.clone();
-                w2.position.set(-L * 0.25, tireR, sd * (W / 2 - 0.65 * s - off * s));
-                g.add(w2);
-            });
-        });
-        g.userData.length = L;
-        g.userData.width = W;
-        g.userData.tireDiameter = tireR * 2;
-        return g;
-    };
+    const haulTruck = (THREE, M, payload, loaded, number) => models.haulTruck(THREE, payload, loaded, number);
 
     /**
      * Pala eléctrica de cables.
      *
      * @param {Object} THREE
-     * @param {Object} M
+     * @returns {Object}
      */
-    const ropeShovel = function(THREE, M) {
-        const g = new THREE.Group();
-        const tracks = new THREE.Group();
-        [-1, 1].forEach(function(sd) {
-            const t = box(THREE, 13, 2.6, 2.8, M.darkSteel);
-            t.position.set(0, 1.3, sd * 4.6);
-            tracks.add(t);
-        });
-        g.add(tracks);
-        const upper = new THREE.Group();
-        upper.position.y = 3.2;
-        const house = box(THREE, 14, 6.5, 9.5, M.cat);
-        house.position.set(-2, 3.5, 0);
-        upper.add(house);
-        const roofHouse = box(THREE, 14.2, 0.4, 9.7, M.white);
-        roofHouse.position.set(-2, 6.9, 0);
-        upper.add(roofHouse);
-        const cab = box(THREE, 3, 3, 3.2, M.white);
-        cab.position.set(4.5, 7.3, 3.4);
-        upper.add(cab);
-        const cabWin = box(THREE, 3.05, 1.4, 3.25, M.glass);
-        cabWin.position.set(4.5, 7.8, 3.4);
-        upper.add(cabWin);
-        const counter = box(THREE, 3, 4.5, 9, M.catDark);
-        counter.position.set(-9.2, 2.6, 0);
-        upper.add(counter);
-        // Pluma.
-        const boom = box(THREE, 22, 1.4, 1.6, M.cat);
-        boom.position.set(10, 12, 0);
-        boom.rotation.z = 0.78;
-        upper.add(boom);
-        const gantry = box(THREE, 1, 9, 1, M.cat);
-        gantry.position.set(-3, 11, 0);
-        gantry.rotation.z = -0.25;
-        upper.add(gantry);
-        const sheave = cyl(THREE, 1.6, 1.6, 1.4, M.darkSteel);
-        sheave.rotation.x = Math.PI / 2;
-        sheave.position.set(17.7, 19.7, 0);
-        upper.add(sheave);
-        // Mango y balde.
-        const handle = box(THREE, 12, 0.9, 0.9, M.steel);
-        handle.position.set(10, 7, 0);
-        handle.rotation.z = 0.25;
-        upper.add(handle);
-        const dipper = box(THREE, 4.2, 4.6, 4.6, M.darkSteel);
-        dipper.position.set(16, 8.5, 0);
-        upper.add(dipper);
-        const ropeMat = new THREE.LineBasicMaterial({color: 0x222222});
-        const rope = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(17.7, 19.7, 0), new THREE.Vector3(16.5, 10.8, 0)]), ropeMat);
-        upper.add(rope);
-        g.add(upper);
-        g.userData.upper = upper;
-        return g;
-    };
+    const ropeShovel = THREE => models.ropeShovel(THREE);
 
     /**
-     * Perforadora de pozos de tronadura sobre orugas.
+     * Perforadora de pozos de tronadura.
      *
      * @param {Object} THREE
-     * @param {Object} M
+     * @returns {Object}
      */
-    const drillRig = function(THREE, M) {
-        const g = new THREE.Group();
-        [-1, 1].forEach(function(sd) {
-            const t = box(THREE, 9, 1.4, 1.2, M.darkSteel);
-            t.position.set(0, 0.7, sd * 2.2);
-            g.add(t);
-        });
-        const body = box(THREE, 8.5, 2.6, 4.6, M.cat);
-        body.position.set(-0.3, 2.7, 0);
-        g.add(body);
-        const cab = box(THREE, 2.4, 2.4, 2.4, M.white);
-        cab.position.set(2.4, 5.2, 1.0);
-        g.add(cab);
-        const win = box(THREE, 2.45, 1.1, 2.45, M.glass);
-        win.position.set(2.4, 5.6, 1.0);
-        g.add(win);
-        const mast = box(THREE, 0.9, 17, 0.9, M.cat);
-        mast.position.set(4.6, 9.8, -0.4);
-        g.add(mast);
-        const rod = cyl(THREE, 0.12, 0.12, 16, M.steel, 10);
-        rod.position.set(4.9, 9.5, -0.4);
-        g.add(rod);
-        const hood = box(THREE, 1.4, 1.4, 1.4, M.darkSteel);
-        hood.position.set(4.9, 1.0, -0.4);
-        g.add(hood);
-        return g;
-    };
+    const drillRig = THREE => models.drillRig(THREE);
 
     /**
-     * Camioneta de supervisión con pértiga y baliza.
+     * Camioneta de supervisión.
      *
      * @param {Object} THREE
-     * @param {Object} M
+     * @param {Object} M materiales (no se usa; compatibilidad)
+     * @param {string} number número interno
+     * @returns {Object}
      */
-    const pickup = function(THREE, M) {
-        const g = new THREE.Group();
-        const body = box(THREE, 5.3, 1.0, 1.9, M.white);
-        body.position.y = 1.0;
-        g.add(body);
-        const cab = box(THREE, 2.4, 0.9, 1.8, M.white);
-        cab.position.set(0.4, 1.9, 0);
-        g.add(cab);
-        const win = box(THREE, 2.45, 0.5, 1.85, M.glass);
-        win.position.set(0.4, 2.0, 0);
-        g.add(win);
-        const w = wheel(THREE, M, 0.42, 0.3);
-        [[1.7, 0.85], [1.7, -0.85], [-1.6, 0.85], [-1.6, -0.85]].forEach(function(p) {
-            const c = w.clone();
-            c.position.set(p[0], 0.42, p[1]);
-            g.add(c);
-        });
-        const pole = cyl(THREE, 0.03, 0.03, 4.5, M.white, 6);
-        pole.position.set(-2.3, 3.5, 0.8);
-        g.add(pole);
-        const flag = box(THREE, 0.02, 0.5, 0.7, M.orange);
-        flag.position.set(-2.3, 5.5, 1.15);
-        g.add(flag);
-        const beacon = cyl(THREE, 0.15, 0.15, 0.2, new THREE.MeshStandardMaterial({color: 0xffa000, emissive: 0xff8f00,
-            emissiveIntensity: 1.5}), 10);
-        beacon.position.set(0.4, 2.45, 0);
-        g.add(beacon);
-        return g;
-    };
+    const pickup = (THREE, M, number) => models.pickup(THREE, number);
 
     /**
      * Trabajador con EPP.
      *
      * @param {Object} THREE
-     * @param {Object} M
-     * @param {boolean} vest
+     * @param {Object} M materiales (no se usa; compatibilidad)
+     * @param {boolean} vest con chaleco
+     * @returns {Object}
      */
-    const worker = function(THREE, M, vest) {
-        const g = new THREE.Group();
-        const legs = box(THREE, 0.32, 0.85, 0.22, M.blue);
-        legs.position.y = 0.45;
-        g.add(legs);
-        const torso = box(THREE, 0.45, 0.62, 0.28, vest === false ? M.blue : M.hivis);
-        torso.position.y = 1.2;
-        g.add(torso);
-        const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), new THREE.MeshStandardMaterial({color: 0xc99a77}));
-        head.position.y = 1.63;
-        g.add(head);
-        const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.white);
-        helmet.position.y = 1.67;
-        g.add(helmet);
-        g.traverse(o => {
-            o.castShadow = true;
-        });
-        g.scale.setScalar(1.15);
-        return g;
-    };
+    const worker = (THREE, M, vest) => models.worker(THREE, vest);
 
     /**
      * Letrero con poste.
@@ -1651,22 +1418,9 @@ define([], function() {
      * Estación total sobre trípode.
      *
      * @param {Object} THREE
-     * @param {Object} M
+     * @returns {Object}
      */
-    const totalStation = function(THREE, M) {
-        const g = new THREE.Group();
-        for (let i = 0; i < 3; i++) {
-            const a = i / 3 * Math.PI * 2;
-            const leg = cyl(THREE, 0.03, 0.03, 1.7, M.wood, 6);
-            leg.position.set(Math.cos(a) * 0.35, 0.8, Math.sin(a) * 0.35);
-            leg.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25);
-            g.add(leg);
-        }
-        const head = box(THREE, 0.25, 0.35, 0.2, new THREE.MeshStandardMaterial({color: 0xf6c400, roughness: 0.4}));
-        head.position.y = 1.75;
-        g.add(head);
-        return g;
-    };
+    const totalStation = THREE => models.totalStation(THREE);
 
     /**
      * Pretil de seguridad a lo largo de una polilínea (sección triangular).
@@ -1861,6 +1615,8 @@ define([], function() {
         createWorld: createWorld, makePit: makePit, buildTerrain: buildTerrain, addSurveyLines: addSurveyLines,
         snapToSurvey: snapToSurvey, materials: materials, box: box, cyl: cyl, haulTruck: haulTruck,
         ropeShovel: ropeShovel, drillRig: drillRig, pickup: pickup, worker: worker, signPost: signPost,
+        wheelLoader: THREE => models.wheelLoader(THREE), diamondDrill: THREE => models.diamondDrill(THREE),
+        wheel: (THREE, M, r, w) => models.tire(THREE, models.mats(THREE), r, w),
         signTexture: signTexture, stake: stake, totalStation: totalStation, bermAlong: bermAlong,
         scatterRocks: scatterRocks, dust: dust, water: water, placeAlong: placeAlong, detailTextures: detailTextures
     };
