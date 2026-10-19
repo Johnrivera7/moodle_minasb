@@ -5,7 +5,8 @@ Plugin de actividad para **Moodle 5.3** (probado con PHP 8.5): laboratorio virtu
 Incluye:
 
 - **5 evaluaciones prácticas semestrales** (★), una por semestre (I a V). Tienen escenas 3D realistas, datos únicos por estudiante, corrección automática en servidor, guardado continuo del avance y calificación en el libro de calificaciones.
-- **84 prácticas formativas** del catálogo curricular (3 por asignatura).
+- **Práctica calificada de ciclo minero** (semestre I, clave `s1_bases_ops_b`). Reemplaza a la antigua práctica formativa del mismo nombre y usa el mismo motor 3D y la misma corrección.
+- **83 prácticas formativas** del catálogo curricular.
 
 **Repositorio:** [github.com/Johnrivera7/moodle_minasb](https://github.com/Johnrivera7/moodle_minasb) · rama de Moodle 5.3: `MOODLE_53`.
 

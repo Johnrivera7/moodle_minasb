@@ -775,18 +775,7 @@ define(['mod_minaslab/eval_kit'], function(kit) {
 
         // Sala de despacho en el borde del rajo.
         const dpos = {x: -pit.L - 20, z: -pit.R - 45};
-        const trailer = new THREE.Group();
-        const tb = kit.box(THREE, 12, 3, 3.6, M.white);
-        tb.position.y = 1.7;
-        trailer.add(tb);
-        const ant = kit.cyl(THREE, 0.08, 0.08, 9, M.steel, 6);
-        ant.position.set(5, 6, 0);
-        trailer.add(ant);
-        const dsign = kit.signPost(THREE, M, ['DESPACHO MINA'], {bg: '#1a237e', fg: '#fff', border: '#fff', width: 3.4,
-            height: 0.9, pole: 3.2});
-        dsign.position.set(-4, 0, 2.2);
-        trailer.add(dsign);
-        place(world, trailer, dpos.x, dpos.z, terrain, 0.2);
+        const trailer = place(world, kit.siteOffice(THREE, 'DESPACHO MINA'), dpos.x, dpos.z, terrain, 0.2);
         const dc = data.dispatch;
         const dinfo = {id: 'dispatch', title: 'Despacho mina — ciclo promedio del turno',
             rows: [['Carga (aculatamiento + carguío)', fmt(dc.carga, 1) + ' min'], ['Viaje cargado', fmt(dc.cargado, 1) + ' min'],
@@ -1054,7 +1043,146 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         return {tools: ['explore', 'measure'], start: 'iso'};
     };
 
-    const builders = {s1: sceneS1, s2: sceneS2, s3: sceneS3, s4: sceneS4, s5: sceneS5};
+    // =====================================================================
+    // Semestre I — ciclo minero (perforación, tronadura, carguío, transporte y descarga).
+    // =====================================================================
+    const sceneS1c = function(world, data) {
+        const THREE = world.THREE;
+        const base = pitWorld(world, data, {seed: 23, relief: 16, rocks: 700, margin: 120});
+        const pit = base.pit;
+        const terrain = base.terrain;
+        const floorY = -pit.depth;
+        const stage = function(p, txt, info) {
+            world.addLabel({x: p.x, y: p.y, z: p.z}, '<span class="mlx-pin mlx-pin--stage">' + txt + '</span>', '', info);
+        };
+
+        // Perforación: malla de pozos sobre el próximo banco y perforadora.
+        const bx = -45;
+        const outline = [[-18, -14], [18, -14], [18, 14], [-18, 14]].map(c => new THREE.Vector3(bx + c[0], floorY + 0.1,
+            c[1]));
+        world.scene.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(outline),
+            new THREE.LineBasicMaterial({color: 0xff3d00})));
+        const collarGeo = new THREE.CylinderGeometry(0.35, 0.45, 0.35, 10);
+        const collarMat = new THREE.MeshStandardMaterial({color: 0x6b5b4b, roughness: 1});
+        for (let x = -15; x <= 15; x += 5) {
+            for (let z = -11; z <= 11; z += 4.5) {
+                const c = new THREE.Mesh(collarGeo, collarMat);
+                c.position.set(bx + x, floorY + 0.15, z);
+                world.scene.add(c);
+            }
+        }
+        const drill = place(world, kit.drillRig(THREE), bx + 8, -6, terrain, 0.4);
+        world.addPickable(drill, {id: 'drill', title: 'Perforadora de pozos de tronadura',
+            rows: [['Diámetro de perforación', '165 mm'], ['Malla', '5,0 × 5,5 m'], ['Profundidad', '11 m (banco + pasadura)']]});
+        stage({x: bx, y: floorY + 24, z: 0}, 'Perforación');
+
+        // Tronadura: pila de material tronado en el frente de carguío.
+        const pile = new THREE.SphereGeometry(1, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2);
+        const pp = pile.attributes.position;
+        const nz = kit.makeNoise(31);
+        for (let i = 0; i < pp.count; i++) {
+            const x = pp.getX(i);
+            const y = pp.getY(i);
+            const z = pp.getZ(i);
+            const f = 1 + nz.noise(x * 3 + 2, z * 3) * 0.12 + nz.noise(x * 9, z * 9 + 4) * 0.05;
+            pp.setXYZ(i, x * f, y * f, z * f);
+        }
+        pile.computeVertexNormals();
+        const pt = kit.detailTextures(THREE, 41);
+        const pileMesh = new THREE.Mesh(pile, new THREE.MeshStandardMaterial({color: 0x8c7462, roughness: 1, map: pt.map,
+            normalMap: pt.normal, normalScale: new THREE.Vector2(1.6, 1.6)}));
+        pileMesh.scale.set(20, 6.5, 16);
+        pileMesh.position.set(58, floorY - 0.3, 0);
+        pileMesh.castShadow = true;
+        pileMesh.receiveShadow = true;
+        world.scene.add(pileMesh);
+        kit.scatterRocks(world, 160, {minX: 34, maxX: 80, minZ: -20, maxZ: 20}, terrain.heightAt, 9,
+            (x, z) => Math.hypot((x - 58) / 24, z / 19) > 0.85 && Math.hypot((x - 58) / 30, z / 24) < 1.05);
+        stage({x: 58, y: floorY + 12, z: 0}, 'Tronadura');
+
+        // Carguío: cargador frontal y camión bajo carga.
+        const ld = data.loader;
+        const loader = place(world, kit.wheelLoader(THREE), 36, -2, terrain, 0);
+        const loaderInfo = {id: 'loader', title: 'Cargador frontal (equipo de carguío)',
+            rows: [['Capacidad del balde', fmt(ld.bucket, 1) + ' m³'], ['Factor de llenado', fmt(ld.fill, 2)],
+                ['Densidad del material esponjado', fmt(ld.loose, 2) + ' t/m³']]};
+        world.addPickable(loader, loaderInfo);
+        world.addFocus('loader', loader.position, 32, -0.75, 0.32);
+        const truckInfo = {id: 'truck', title: 'Camión de extracción',
+            rows: [['Carga útil nominal', fmt(data.truck.payload) + ' t'], ['Tipo', 'Camión mecánico de alto tonelaje']]};
+        const lt = place(world, kit.haulTruck(THREE, null, data.truck.payload, false, 'C-10'), 30, 16, terrain,
+            -Math.PI / 2 + 0.25);
+        world.addPickable(lt, truckInfo);
+        world.addFocus('truck', lt.position, 34, 1.1, 0.35);
+        kit.dust(world, loader.position, 12, 40);
+        stage({x: 32, y: floorY + 13, z: 6}, 'Carguío', loaderInfo);
+
+        // Fila de camiones con su carga (T1–T6) para decidir el destino.
+        const proto = kit.haulTruck(THREE, null, data.truck.payload, true, 'C-11');
+        data.loads.forEach(function(l, i) {
+            const tr = proto.clone();
+            place(world, tr, -8 + i * 15, -34, terrain, 0);
+            const info = {id: 'load-' + l.id, pickId: l.id, title: 'Carga ' + l.id + ' — camión ' + l.truck,
+                rows: [['Ley de Cu (control de mineral)', fmt(l.grade, 2) + ' %'], ['Origen', 'Frente F-3, banco 2.635']]};
+            world.addPickable(tr, info);
+            world.addLabel({x: tr.position.x, y: tr.position.y + 9, z: tr.position.z}, pin(l.id, 'mlx-pin--block'), '', info);
+        });
+        world.addFocus('queue', {x: 30, y: floorY, z: -34}, 120, 0.35, 0.65);
+
+        // Transporte: camiones recorriendo la rampa.
+        for (let i = 0; i < data.truck.count; i++) {
+            rampTruck(world, pit, data.truck.payload, i / data.truck.count, truckInfo);
+        }
+        const mid = pit.rampAt(Math.floor(pit.path.length * 0.45));
+        stage({x: mid.x, y: mid.y + 12, z: mid.z}, 'Transporte');
+
+        // Descarga: chancador primario en el borde (inicio de la rampa) y botadero.
+        const start = pit.rampAt(0);
+        const cx = start.x - 30;
+        const cz = start.z - 40;
+        const crusher = place(world, kit.crusherStation(THREE), cx, cz, terrain, Math.PI * 0.12);
+        const be = crusher.userData.beltEnd.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), crusher.rotation.y);
+        const sx = cx + be.x - 10;
+        const sz = cz + be.z;
+        const stockpile = new THREE.Mesh(new THREE.ConeGeometry(26, 20, 48), new THREE.MeshStandardMaterial({
+            color: 0x6f5e50, roughness: 1, map: pt.map}));
+        stockpile.position.set(sx, terrain.heightAt(sx, sz) + 10, sz);
+        stockpile.castShadow = true;
+        world.scene.add(stockpile);
+        stage({x: cx, y: crusher.position.y + 20, z: cz}, 'Chancado primario');
+        const dump = new THREE.Mesh(new THREE.CylinderGeometry(70, 105, 22, 48), new THREE.MeshStandardMaterial({
+            color: 0x9b8169, roughness: 1, map: pt.map}));
+        const dx = pit.L + pit.R + 120;
+        dump.position.set(dx, terrain.heightAt(dx, 40) + 10, 40);
+        dump.castShadow = true;
+        dump.receiveShadow = true;
+        world.scene.add(dump);
+        stage({x: dx, y: dump.position.y + 18, z: 40}, 'Botadero');
+
+        // Despacho mina.
+        const dpos = {x: start.x + 40, z: start.z - 30};
+        const trailer = place(world, kit.siteOffice(THREE, 'DESPACHO MINA'), dpos.x, dpos.z, terrain, 0.2);
+        place(world, kit.pickup(THREE, null, 'SUP-03'), dpos.x - 10, dpos.z + 7, terrain, 0.3);
+        const dc = data.dispatch;
+        const dinfo = {id: 'dispatch', title: 'Despacho mina — ciclo promedio del turno',
+            rows: [['Tiempo de carga', fmt(dc.carga, 1) + ' min'], ['Distancia frente → chancador', fmt(dc.distancia, 1) + ' km'],
+                ['Velocidad media cargado', fmt(dc.velcargado) + ' km/h'], ['Descarga', fmt(dc.descarga, 1) + ' min'],
+                ['Viaje vacío', fmt(dc.vacio, 1) + ' min'], ['Esperas y maniobras', fmt(dc.esperas, 1) + ' min'],
+                ['Camiones en operación', String(dc.enoperacion)]]};
+        world.addPickable(trailer, dinfo);
+        world.addLabel({x: dpos.x, y: trailer.position.y + 11, z: dpos.z}, tag('Despacho'), '', dinfo);
+        world.addFocus('dispatch', trailer.position, 28, 0.3, 0.3);
+        place(world, kit.worker(THREE, null, true), dpos.x - 4, dpos.z + 3, terrain, 1.2);
+
+        const wp = pit.wallPoint(1, 0, 0.5);
+        world.addFocus('wall', {x: 0, y: wp.y - pit.H * 0.5, z: wp.z + pit.period}, 80, 0.0, 0.22);
+        world.addFocus('iso', {x: 0, y: -pit.depth * 0.5, z: -20}, (pit.L + pit.R) * 2.4, 0.6, 0.62);
+        world.addFocus('plan', {x: 0, y: -pit.depth * 0.5, z: -20}, (pit.L + pit.R) * 3.0, 0.0, 1.5);
+        world.addFocus('section', {x: 0, y: -pit.depth * 0.5, z: 0}, (pit.L + pit.R) * 2.4, 0.0, 0.12);
+        return {tools: ['explore', 'measure'], start: 'iso', drill: drill};
+    };
+
+    const builders = {s1: sceneS1, s1c: sceneS1c, s2: sceneS2, s3: sceneS3, s4: sceneS4, s5: sceneS5};
 
     /**
      * Construye la escena del caso.

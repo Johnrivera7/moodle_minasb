@@ -3046,3 +3046,11 @@ body:not(.path-mod-minaslab) .minaslab-app {
         animation-duration: 3s;
     }
 }
+
+.mlx-pin--stage {
+    background: #10151c;
+    color: #ffd27f;
+    border-color: #ffd27f;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+}

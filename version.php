@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'mod_minaslab';
-$plugin->version   = 2026101800;
+$plugin->version   = 2026101900;
 $plugin->requires  = 2026100500; // Moodle 5.3.
 $plugin->supported = [503, 503];
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.0 (MOODLE_53)';
+$plugin->release   = '1.1.0 (MOODLE_53)';

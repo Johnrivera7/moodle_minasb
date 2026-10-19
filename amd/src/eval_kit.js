@@ -1616,6 +1616,7 @@ define(['mod_minaslab/eval_models'], function(models) {
         snapToSurvey: snapToSurvey, materials: materials, box: box, cyl: cyl, haulTruck: haulTruck,
         ropeShovel: ropeShovel, drillRig: drillRig, pickup: pickup, worker: worker, signPost: signPost,
         wheelLoader: THREE => models.wheelLoader(THREE), diamondDrill: THREE => models.diamondDrill(THREE),
+        siteOffice: (THREE, title) => models.siteOffice(THREE, title), crusherStation: THREE => models.crusherStation(THREE),
         wheel: (THREE, M, r, w) => models.tire(THREE, models.mats(THREE), r, w),
         signTexture: signTexture, stake: stake, totalStation: totalStation, bermAlong: bermAlong,
         scatterRocks: scatterRocks, dust: dust, water: water, placeAlong: placeAlong, detailTextures: detailTextures

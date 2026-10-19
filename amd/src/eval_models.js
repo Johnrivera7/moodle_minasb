@@ -161,6 +161,14 @@ define([], function() {
                 g.fillRect(6, y + 4, w - 12, 1);
             }
         }, true);
+        const cladding = canvasTex(THREE, 128, 64, function(g, w, h) {
+            // Plancha ondulada (costaneras verticales) para módulos y naves.
+            for (let x = 0; x < w; x++) {
+                const v = 205 + Math.round(Math.sin(x / w * Math.PI * 16) * 32);
+                g.fillStyle = 'rgb(' + v + ',' + v + ',' + (v - 4) + ')';
+                g.fillRect(x, 0, 1, h);
+            }
+        }, true);
         const P = (o) => new THREE.MeshPhysicalMaterial(o);
         const S = (o) => new THREE.MeshStandardMaterial(o);
         const m = {
@@ -194,6 +202,8 @@ define([], function() {
             boot: S({color: 0x2b1d14, roughness: 0.8}),
             rope: S({color: 0x2a2a2a, roughness: 0.5, metalness: 0.8}),
             rock: S({color: 0x7f6652, roughness: 1}),
+            cladding: dusty(S({map: cladding, roughness: 0.45, metalness: 0.55}), 1.0, 0.5),
+            concrete: dusty(S({color: 0xb3ada2, roughness: 0.95}), 3.0, 0.45),
             wood: S({color: 0x8b6a43, roughness: 0.85})
         };
         cache.set(THREE, m);
@@ -1389,7 +1399,160 @@ define([], function() {
         return out;
     };
 
+    // ---------------------------------------------------------------------
+    // Instalaciones de faena.
+    // ---------------------------------------------------------------------
+
+    /**
+     * Módulo de oficina de faena (despacho): plancha ondulada, ventanas con marco,
+     * puerta con escalera, equipo de aire acondicionado y mástil de radio.
+     *
+     * @param {Object} THREE
+     * @param {string} title rótulo de la fachada
+     * @returns {Object}
+     */
+    const siteOffice = function(THREE, title) {
+        const M = mats(THREE);
+        const g = new THREE.Group();
+        const L = 12.2;
+        const W = 3.0;
+        const H = 2.9;
+        rb(g, THREE, M.steel, [L, 0.35, W], [0, 0.45, 0], 0.04);
+        [-5.4, 0, 5.4].forEach(function(x) {
+            [-1, 1].forEach(function(sd) {
+                rb(g, THREE, M.steel, [0.3, 0.3, 0.3], [x, 0.15, sd * 1.2], 0.03);
+            });
+        });
+        const shell = mesh(THREE, rbox(THREE, L, H, W, 0.06), M.cladding, 0, 0.62 + H / 2, 0);
+        g.add(shell);
+        rb(g, THREE, M.white, [L + 0.3, 0.16, W + 0.4], [0, 0.62 + H + 0.08, 0], 0.04);
+        // Ventanas en la fachada frontal (+z) y lateral.
+        [-4.2, -1.4, 3.4].forEach(function(x) {
+            rb(g, THREE, M.steelLight, [1.6, 1.15, 0.08], [x, 2.25, W / 2 + 0.02], 0.02);
+            const gl = mesh(THREE, new THREE.PlaneGeometry(1.45, 1.0), M.glass, x, 2.25, W / 2 + 0.07);
+            g.add(gl);
+            rb(g, THREE, M.black, [0.05, 1.0, 0.04], [x, 2.25, W / 2 + 0.08], 0.01);
+        });
+        // Puerta, escalera con baranda y alero.
+        rb(g, THREE, M.steelLight, [1.0, 2.15, 0.08], [1.3, 1.72, W / 2 + 0.02], 0.02);
+        rb(g, THREE, M.black, [0.12, 0.05, 0.05], [1.65, 1.7, W / 2 + 0.08], 0.01);
+        rb(g, THREE, M.white, [1.6, 0.08, 0.9], [1.3, 3.0, W / 2 + 0.45], 0.02);
+        rb(g, THREE, M.steelLight, [1.4, 0.06, 1.0], [1.3, 0.6, W / 2 + 0.55], 0.02);
+        stairs(g, THREE, M, [1.3, 0.0, W / 2 + 1.75], [1.3, 0.55, W / 2 + 1.05], 1.0);
+        railing(g, THREE, M.yellow, [[0.6, 0.6, W / 2 + 1.05], [0.6, 0.6, W / 2 + 0.1]], 0.95);
+        // Aire acondicionado y rótulo.
+        rb(g, THREE, M.white, [0.9, 0.65, 0.35], [-2.8, 2.6, -W / 2 - 0.2], 0.05);
+        rb(g, THREE, M.grille, [0.75, 0.5, 0.02], [-2.8, 2.6, -W / 2 - 0.38], 0.01);
+        if (title) {
+            const d = decal(THREE, title, 4.2, 0.55, '#0d47a1');
+            d.position.set(-1.6, 3.2, W / 2 + 0.06);
+            g.add(d);
+        }
+        // Mástil de radio con antena parabólica y balizas.
+        g.add(rod(THREE, new THREE.Vector3(5.6, 3.6, -0.8), new THREE.Vector3(5.6, 11, -0.8), 0.06, M.steelLight, 8));
+        for (let y = 4.5; y < 11; y += 1.6) {
+            g.add(rod(THREE, new THREE.Vector3(5.45, y, -0.95), new THREE.Vector3(5.75, y + 0.8, -0.65), 0.02, M.steelLight, 4));
+        }
+        const dish = new THREE.SphereGeometry(0.55, 16, 8, 0, TAU, 0, 0.9);
+        const dm = mesh(THREE, dish, M.white, 5.6, 8.8, -0.45);
+        dm.rotation.x = Math.PI / 2;
+        g.add(dm);
+        g.add(mesh(THREE, new THREE.SphereGeometry(0.1, 10, 8), M.taillight, 5.6, 11.1, -0.8));
+        const out = bake(THREE, g);
+        out.userData.kind = 'office';
+        return out;
+    };
+
+    /**
+     * Estación de chancado primario: muro de descarga (MSE) con losa para camiones,
+     * tolva, picarrocas, nave de chancador con revestimiento y galería de correa.
+     * La losa de descarga queda hacia +x.
+     *
+     * @param {Object} THREE
+     * @returns {Object}
+     */
+    const crusherStation = function(THREE) {
+        const M = mats(THREE);
+        const g = new THREE.Group();
+        // Muro de descarga en terraplén y losa de aproximación.
+        // Foso de descarga: muro posterior y muros laterales abiertos hacia la tolva.
+        rb(g, THREE, M.concrete, [2.2, 9, 18], [-5.0, 4.5, 0], 0.15);
+        [-1, 1].forEach(function(sd) {
+            rb(g, THREE, M.concrete, [12, 9, 1.6], [1.0, 4.5, sd * 8.2], 0.15);
+            const wing = rb(g, THREE, M.concrete, [11, 8.6, 1.2], [12.5, 4.3, sd * 8.4], 0.15);
+            wing.rotation.y = sd * 0.05;
+        });
+        // Terraplén bajo la losa de aproximación y bloque bajo la tolva.
+        rb(g, THREE, M.concrete, [12, 8.6, 15], [12.5, 4.3, 0], 0.15);
+        rb(g, THREE, M.concrete, [12, 0.5, 15], [12.5, 8.85, 0], 0.08);
+        rb(g, THREE, M.steel, [8, 4.5, 8], [1.3, 2.25, 0], 0.1);
+        rb(g, THREE, M.stripes, [0.8, 1.4, 14], [6.6, 9.75, 0], 0.08);
+        // Tolva de recepción con revestimiento y picarrocas.
+        const hop = new THREE.CylinderGeometry(6.2, 2.6, 5.2, 4, 1, true);
+        hop.rotateY(Math.PI / 4);
+        g.add(mesh(THREE, hop, M.steel, 1.3, 6.55, 0));
+        rb(g, THREE, M.steelLight, [9.6, 0.35, 0.35], [1.3, 9.15, 4.6], 0.04);
+        rb(g, THREE, M.steelLight, [9.6, 0.35, 0.35], [1.3, 9.15, -4.6], 0.04);
+        rb(g, THREE, M.yellow, [1.2, 0.8, 1.2], [-3.6, 10.3, 5.6], 0.1);
+        g.add(rod(THREE, new THREE.Vector3(-3.6, 10.6, 5.6), new THREE.Vector3(-0.8, 13.4, 3.6), 0.25, M.yellow, 10));
+        g.add(rod(THREE, new THREE.Vector3(-0.8, 13.4, 3.6), new THREE.Vector3(1.6, 9.6, 1.5), 0.2, M.yellow, 10));
+        hydraulic(g, THREE, M, [-3.2, 10.8, 5.2], [-1.4, 12.6, 4.1], 0.12);
+        // Nave del chancador (estructura + revestimiento ondulado + techo a dos aguas).
+        const nave = mesh(THREE, rbox(THREE, 12, 15, 14, 0.08), M.cladding, -12, 7.5, 0);
+        g.add(nave);
+        for (let x = -17.8; x <= -6.2; x += 2.9) {
+            rb(g, THREE, M.steel, [0.25, 15.2, 0.25], [x, 7.6, 7.1], 0.02);
+            rb(g, THREE, M.steel, [0.25, 15.2, 0.25], [x, 7.6, -7.1], 0.02);
+        }
+        const roof = new THREE.Shape();
+        roof.moveTo(-7.4, 0);
+        roof.lineTo(7.4, 0);
+        roof.lineTo(0, 2.6);
+        roof.closePath();
+        const rg = new THREE.ExtrudeGeometry(roof, {depth: 12.6, bevelEnabled: false});
+        rg.translate(0, 0, -6.3);
+        rg.rotateY(Math.PI / 2);
+        g.add(mesh(THREE, rg, M.white, -12, 15, 0));
+        [-16, -12, -8].forEach(function(x) {
+            rb(g, THREE, M.louver, [1.6, 1.2, 0.05], [x, 12, 7.06], 0.01);
+        });
+        rb(g, THREE, M.steelLight, [3.2, 4.0, 0.1], [-12, 2.0, 7.05], 0.02);
+        // Galería de correa transportadora (reticulado) con cubierta.
+        const a = new THREE.Vector3(-18, 4, 0);
+        const b = new THREE.Vector3(-70, 20, -14);
+        const dir = new THREE.Vector3().subVectors(b, a);
+        const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize().multiplyScalar(1.4);
+        [-1, 1].forEach(function(sd) {
+            [0, 2.2].forEach(function(h) {
+                g.add(rod(THREE, a.clone().addScaledVector(side, sd).setY(a.y + h), b.clone().addScaledVector(side, sd)
+                    .setY(b.y + h), 0.1, M.steel, 6));
+            });
+        });
+        const nseg = 16;
+        for (let i = 0; i <= nseg; i++) {
+            const p = a.clone().lerp(b, i / nseg);
+            g.add(rod(THREE, p.clone().addScaledVector(side, -1), p.clone().addScaledVector(side, 1), 0.06, M.steel, 5));
+            [-1, 1].forEach(function(sd) {
+                g.add(rod(THREE, p.clone().addScaledVector(side, sd), p.clone().addScaledVector(side, sd).setY(p.y + 2.2), 0.06,
+                    M.steel, 5));
+            });
+            if (i % 4 === 2) {
+                g.add(rod(THREE, p.clone().setY(0), p.clone().setY(p.y - 0.1), 0.25, M.steel, 8));
+            }
+        }
+        const cover = new THREE.Mesh(new THREE.BoxGeometry(dir.length(), 0.12, 3.2), M.cladding);
+        cover.position.copy(a).lerp(b, 0.5).setY((a.y + b.y) / 2 + 2.35);
+        cover.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir.clone().normalize());
+        cover.castShadow = true;
+        g.add(cover);
+        const out = bake(THREE, g);
+        out.userData.kind = 'crusher';
+        out.userData.beltEnd = b;
+        return out;
+    };
+
     return {
+        siteOffice: siteOffice, crusherStation: crusherStation,
         mats: mats, rbox: rbox, bake: bake, tire: tire, haulTruck: haulTruck, ropeShovel: ropeShovel, drillRig: drillRig,
         wheelLoader: wheelLoader, pickup: pickup, worker: worker, diamondDrill: diamondDrill, totalStation: totalStation
     };

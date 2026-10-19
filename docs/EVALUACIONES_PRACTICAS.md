@@ -54,6 +54,22 @@ Los resultados de aprendizaje (RA) provienen de las **Rutas de Aprendizaje** del
 | Muestreo por canal | numérica | Σ(l·ley)/Σl | ±0,01 % | BOM-RA3 | C1 | 10 |
 | Ciclo de operaciones | orden | perforación → tronadura → carguío → transporte → chancado/botadero | — | BOM-RA1 | C1 | 10 |
 
+### Práctica complementaria I — Ciclo minero a rajo abierto (`s1_bases_ops_b`)
+
+Reemplaza la antigua práctica formativa «ciclo perforación–carguío–transporte y botadero» con la misma clave de catálogo, de modo que las actividades existentes se actualizan solas. Ahora es una práctica calificada.
+
+**Escena:** malla de perforación con perforadora, pila de material tronado, cargador frontal cargando un camión, fila de 6 camiones con su carga, 3 camiones animados en la rampa, chancador primario con tolva y correa, acopio, botadero y despacho mina.
+
+| Tarea | Tipo | Cálculo / criterio | Tolerancia | RA | Comp. | Peso |
+|---|---|---|---|---|---|---|
+| Secuencia del ciclo | orden | perforación → tronadura → carguío → transporte → descarga → retorno | — | BOM-RA1 | C1 | 10 |
+| Pases de carguío | numérica | ⌈carga útil / (balde · llenado · densidad suelta)⌉ | ±0,5 | BOM-RA1 | C1 | 15 |
+| Viaje cargado | numérica | distancia / velocidad · 60 | ±2 % | BOM-RA2 | C1 | 15 |
+| Productividad del camión | numérica | carga útil · min efectivos / ciclo | ±2 % | BOM-RA1 | C1, C2 | 15 |
+| Flota necesaria | numérica | ⌈plan t/h / productividad⌉ | ±0,5 | BOM-RA1 | C2 | 15 |
+| Factor de acoplamiento | numérica | N · tiempo de carga / ciclo | ±0,03 | BOM-RA1, BOM-RA2 | C1, C2 | 15 |
+| Destino de las cargas | múltiple | ley ≥ ley de corte → chancador; resto a botadero | — | BOM-RA1 | C1 | 15 |
+
 ## Semestre II — Geología Estructural y de Minas
 
 **Apoyo:** Topografía de Minas, Probabilidad y Estadística.

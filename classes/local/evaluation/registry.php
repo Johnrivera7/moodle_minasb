@@ -28,6 +28,7 @@ final class registry {
     /** @var string[] Clases de evaluación, una por semestre. */
     private const CLASSES = [
         semester1::class,
+        semester1_cycle::class,
         semester2::class,
         semester3::class,
         semester4::class,
