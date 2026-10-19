@@ -3,7 +3,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->dirroot . '/mod/minaslab/restore/moodle2/restore_minaslab_stepslib.php');
+require_once($CFG->dirroot . '/mod/minaslab/backup/moodle2/restore_minaslab_stepslib.php');
 
 /**
  * Define el restore de MinasLab.
@@ -18,10 +18,10 @@ class restore_minaslab_activity_task extends restore_activity_task {
     }
 
     /**
-     * @return string
+     * @return restore_decode_content[]
      */
-    public static function define_decode_content_links() {
-        return '';
+    public static function define_decode_contents() {
+        return [new restore_decode_content('minaslab', ['intro'], 'minaslab')];
     }
 
     /**

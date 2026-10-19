@@ -22,8 +22,16 @@ class backup_minaslab_activity_structure_step extends backup_activity_structure_
             'timecreated', 'timemodified',
         ]);
 
+        $responses = new backup_nested_element('responses');
+        $response = new backup_nested_element('response', ['id'], [
+            'userid', 'taskid', 'response', 'fraction', 'score', 'tries', 'status', 'closed',
+            'timecreated', 'timemodified',
+        ]);
+
         $minaslab->add_child($userstates);
         $userstates->add_child($userstate);
+        $minaslab->add_child($responses);
+        $responses->add_child($response);
 
         $minaslab->set_source_table('minaslab', ['id' => backup::VAR_ACTIVITYID]);
         $minaslab->annotate_files('mod_minaslab', 'intro', null);
@@ -31,6 +39,8 @@ class backup_minaslab_activity_structure_step extends backup_activity_structure_
         if ($userinfo) {
             $userstate->set_source_table('minaslab_user_state', ['minaslabid' => backup::VAR_PARENTID]);
             $userstate->annotate_ids('user', 'userid');
+            $response->set_source_table('minaslab_response', ['minaslabid' => backup::VAR_PARENTID]);
+            $response->annotate_ids('user', 'userid');
         }
 
         return $this->prepare_activity_structure($minaslab);

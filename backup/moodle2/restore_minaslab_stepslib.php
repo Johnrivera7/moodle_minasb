@@ -15,6 +15,7 @@ class restore_minaslab_activity_structure_step extends restore_activity_structur
         $paths[] = new restore_path_element('minaslab', '/activity/minaslab');
         if ($userinfo) {
             $paths[] = new restore_path_element('user_state', '/activity/minaslab/user_states/user_state');
+            $paths[] = new restore_path_element('response', '/activity/minaslab/responses/response');
         }
 
         return $this->prepare_activity_structure($paths);
@@ -46,6 +47,21 @@ class restore_minaslab_activity_structure_step extends restore_activity_structur
         $data->minaslabid = $this->get_new_parentid('minaslab');
         $data->userid = $this->get_mappingid('user', $data->userid);
         $DB->insert_record('minaslab_user_state', $data);
+    }
+
+    /**
+     * @param array|object $data
+     */
+    protected function process_response($data): void {
+        global $DB;
+
+        $data = (object) $data;
+        $oldid = $data->id;
+        unset($data->id);
+        $data->minaslabid = $this->get_new_parentid('minaslab');
+        $data->userid = $this->get_mappingid('user', $data->userid);
+        $newid = $DB->insert_record('minaslab_response', $data);
+        $this->set_mapping('minaslab_response', $oldid, $newid);
     }
 
     protected function after_execute(): void {
