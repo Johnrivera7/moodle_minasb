@@ -151,6 +151,20 @@ define([], function() {
                 g.fill();
             }
         }, true);
+        const chevron = canvasTex(THREE, 256, 64, function(g, w, h) {
+            g.fillStyle = '#f2f2f2';
+            g.fillRect(0, 0, w, h);
+            g.fillStyle = '#c81414';
+            for (let x = -h; x < w + h; x += 48) {
+                g.beginPath();
+                g.moveTo(x, h);
+                g.lineTo(x + 24, h);
+                g.lineTo(x + 24 + h, 0);
+                g.lineTo(x + h, 0);
+                g.closePath();
+                g.fill();
+            }
+        }, true);
         const louver = canvasTex(THREE, 128, 128, function(g, w, h) {
             g.fillStyle = '#d7d9d6';
             g.fillRect(0, 0, w, h);
@@ -185,11 +199,18 @@ define([], function() {
             rubber: dusty(S({color: 0x151515, roughness: 0.9, metalness: 0, normalMap: tread,
                 normalScale: new THREE.Vector2(0.6, 0.6)}), 1.4, 0.55),
             rim: dusty(S({color: 0x9b9c96, roughness: 0.45, metalness: 0.6}), 1.6, 0.7),
+            rimYellow: dusty(P({color: 0xe9a917, roughness: 0.45, metalness: 0.2, clearcoat: 0.4}), 1.6, 0.8),
+            alloy: dusty(S({color: 0xc3c6c9, roughness: 0.28, metalness: 0.95}), 0.6, 0.6),
+            redPaint: dusty(P({color: 0xa50f15, roughness: 0.32, metalness: 0.15, clearcoat: 0.9,
+                clearcoatRoughness: 0.12}), 0.7, 0.7),
+            plastic: dusty(S({color: 0x1a1b1c, roughness: 0.65, metalness: 0.05}), 0.6, 0.6),
             glass: P({color: 0x0f1d26, roughness: 0.04, metalness: 0.0, clearcoat: 1, clearcoatRoughness: 0.05,
                 transparent: true, opacity: 0.62, envMapIntensity: 2.4, side: THREE.DoubleSide}),
             black: S({color: 0x101112, roughness: 0.7, metalness: 0.2}),
             grille: S({map: grille, roughness: 0.5, metalness: 0.5}),
             stripes: S({map: stripes, roughness: 0.6, metalness: 0.1}),
+            chevron: S({map: chevron, roughness: 0.3, metalness: 0.4, emissive: 0x200000}),
+            green: S({color: 0x20d020, emissive: 0x0a8a0a, emissiveIntensity: 1.2, roughness: 0.3}),
             louver: dusty(S({map: louver, roughness: 0.5, metalness: 0.3}), 3, 0.5),
             headlight: S({color: 0xffffff, emissive: 0xfff2cf, emissiveIntensity: 2.2, roughness: 0.2}),
             taillight: S({color: 0xff2020, emissive: 0xc00000, emissiveIntensity: 1.2, roughness: 0.3}),
@@ -520,65 +541,277 @@ define([], function() {
     };
 
     // ---------------------------------------------------------------------
+    // Marcas (ficticias) y rotulación.
+    // ---------------------------------------------------------------------
+
+    /** Marcas ficticias usadas en los equipos (no corresponden a fabricantes reales). */
+    const BRAND = {heavy: 'MINEXA', tire: 'ROCATRAX', pickup: 'KAIRO', drill: 'SONDAX', company: 'MINERA CERRO ACONCAGUA'};
+
+    /**
+     * Emblema metálico (placa cromada con texto en relieve) para parrillas y capós.
+     *
+     * @param {Object} THREE
+     * @param {string} text
+     * @param {number} w ancho (m)
+     * @param {number} h alto (m)
+     * @param {Object} opt {bg, fg, chrome}
+     * @returns {Object} malla (se conserva al hornear)
+     */
+    const badge = function(THREE, text, w, h, opt) {
+        opt = opt || {};
+        const tex = canvasTex(THREE, 512, Math.round(512 * h / w), function(g, cw, ch) {
+            const r = ch * 0.45;
+            const grd = g.createLinearGradient(0, 0, 0, ch);
+            grd.addColorStop(0, opt.chrome === false ? opt.bg : '#f4f4f4');
+            grd.addColorStop(0.5, opt.chrome === false ? opt.bg : '#9a9ea3');
+            grd.addColorStop(1, opt.chrome === false ? opt.bg : '#e6e6e6');
+            g.fillStyle = grd;
+            g.beginPath();
+            g.moveTo(r, 2);
+            g.arcTo(cw - 2, 2, cw - 2, ch - 2, r);
+            g.arcTo(cw - 2, ch - 2, 2, ch - 2, r);
+            g.arcTo(2, ch - 2, 2, 2, r);
+            g.arcTo(2, 2, cw - 2, 2, r);
+            g.fill();
+            g.fillStyle = opt.bg || '#111';
+            g.beginPath();
+            const m = ch * 0.12;
+            g.moveTo(r + m, m);
+            g.arcTo(cw - m, m, cw - m, ch - m, r - m);
+            g.arcTo(cw - m, ch - m, m, ch - m, r - m);
+            g.arcTo(m, ch - m, m, m, r - m);
+            g.arcTo(m, m, cw - m, m, r - m);
+            g.fill();
+            g.fillStyle = opt.fg || '#e9e9e9';
+            g.font = 'italic 900 ' + Math.round(ch * 0.58) + 'px "Arial Black", "Helvetica Neue", Arial, sans-serif';
+            g.textAlign = 'center';
+            g.textBaseline = 'middle';
+            g.fillText(text, cw / 2, ch / 2 + ch * 0.03);
+        }, true);
+        const mat = new THREE.MeshStandardMaterial({map: tex, transparent: true, roughness: 0.25, metalness: 0.6,
+            polygonOffset: true, polygonOffsetFactor: -2});
+        const o = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+        o.userData.keep = true;
+        return o;
+    };
+
+    /**
+     * Rotulación del flanco del neumático (texto en relieve dispuesto en círculo).
+     *
+     * @param {Object} THREE
+     * @param {string} text
+     * @returns {Object} textura
+     */
+    const sidewallTex = function(THREE, text) {
+        const key = 'sw:' + text;
+        const m = mats(THREE);
+        m.__tex = m.__tex || {};
+        if (m.__tex[key]) {
+            return m.__tex[key];
+        }
+        const t = canvasTex(THREE, 1024, 1024, function(g, w) {
+            g.clearRect(0, 0, w, w);
+            g.translate(w / 2, w / 2);
+            g.fillStyle = '#4a4a4a';
+            g.font = '900 64px "Arial Black", Arial, sans-serif';
+            g.textAlign = 'center';
+            g.textBaseline = 'middle';
+            const full = (text + '   ').repeat(2);
+            const n = full.length;
+            for (let i = 0; i < n; i++) {
+                g.save();
+                g.rotate(i / n * TAU);
+                g.translate(0, -w * 0.405);
+                g.fillText(full[i], 0, 0);
+                g.restore();
+            }
+            g.strokeStyle = '#3a3a3a';
+            g.lineWidth = 6;
+            g.beginPath();
+            g.arc(0, 0, w * 0.46, 0, TAU);
+            g.stroke();
+        }, true);
+        m.__tex[key] = t;
+        return t;
+    };
+
+    // ---------------------------------------------------------------------
     // Neumáticos y llantas.
     // ---------------------------------------------------------------------
 
     /**
-     * Neumático minero torneado con banda en chevrón y llanta con pernos.
-     * El eje queda a lo largo de z.
+     * Taco de banda: paralelogramo inclinado extruido radialmente con bisel.
+     *
+     * @param {Object} THREE
+     * @param {number} lu largo circunferencial
+     * @param {number} w0 inicio axial
+     * @param {number} w1 fin axial
+     * @param {number} slant inclinación (tangente)
+     * @param {number} h altura del taco
+     * @returns {Object} BufferGeometry (base en y = 0, altura hacia +y)
+     */
+    const lugGeometry = function(THREE, lu, w0, w1, slant, h) {
+        const s = new THREE.Shape();
+        s.moveTo(-lu / 2 + slant * w0, w0);
+        s.lineTo(lu / 2 + slant * w0, w0);
+        s.lineTo(lu / 2 * 0.85 + slant * w1, w1);
+        s.lineTo(-lu / 2 * 0.85 + slant * w1, w1);
+        s.closePath();
+        const bev = Math.min(lu, Math.abs(w1 - w0)) * 0.08;
+        const g = new THREE.ExtrudeGeometry(s, {depth: h - bev, bevelEnabled: true, bevelSize: bev, bevelThickness: bev,
+            bevelSegments: 1, curveSegments: 1});
+        g.rotateX(-Math.PI / 2);
+        return g;
+    };
+
+    /**
+     * Neumático realista con carcasa torneada, banda con tacos y nervio central,
+     * rotulación del flanco y llanta (minera de varias piezas o de aleación).
+     * El eje queda a lo largo de z; la cara exterior mira a +z.
      *
      * @param {Object} THREE
      * @param {Object} M materiales
      * @param {number} R radio exterior
      * @param {number} W ancho de banda
-     * @param {Object} opt {rimColor, lugs, dual}
+     * @param {Object} opt {pattern: mining|loader|allterrain, rim: mining|alloy, rimMat, label, lugs}
      * @returns {Object} grupo
      */
     const tire = function(THREE, M, R, W, opt) {
         opt = opt || {};
         const g = new THREE.Group();
-        const rimR = R * 0.47;
+        const pattern = opt.pattern || 'mining';
+        const alloy = (opt.rim || (pattern === 'allterrain' ? 'alloy' : 'mining')) === 'alloy';
+        const rimR = alloy ? R * 0.56 : R * 0.42;
+        const lugH = pattern === 'allterrain' ? R * 0.035 : R * (pattern === 'loader' ? 0.07 : 0.05);
+        const Rc = R - lugH * 0.85;
+
+        // Carcasa con hombros redondeados.
         const prof = [
-            [rimR * 1.02, -W * 0.44], [R * 0.80, -W * 0.50], [R * 0.93, -W * 0.48], [R * 0.985, -W * 0.40],
-            [R * 0.995, -W * 0.30], [R * 0.995, W * 0.30], [R * 0.985, W * 0.40], [R * 0.93, W * 0.48],
-            [R * 0.80, W * 0.50], [rimR * 1.02, W * 0.44]
+            [rimR * 1.04, -W * 0.40], [rimR * 1.12, -W * 0.47], [R * 0.78, -W * 0.51], [R * 0.9, -W * 0.5],
+            [Rc * 0.975, -W * 0.44], [Rc, -W * 0.36], [Rc, W * 0.36], [Rc * 0.975, W * 0.44], [R * 0.9, W * 0.5],
+            [R * 0.78, W * 0.51], [rimR * 1.12, W * 0.47], [rimR * 1.04, W * 0.40]
         ].map(p => new THREE.Vector2(p[0], p[1]));
-        const body = new THREE.LatheGeometry(prof, 48);
+        const body = new THREE.LatheGeometry(prof, 56);
         body.rotateX(Math.PI / 2);
         g.add(mesh(THREE, body, M.rubber));
-        // Tacos en chevrón (dos medias bandas desfasadas).
-        const nLug = opt.lugs === undefined ? Math.round(R * 18) : opt.lugs;
-        // Piezas pequeñas y repetidas: caja simple (el bisel no se aprecia y reduce triángulos).
-        const lugGeo = new THREE.BoxGeometry(R * 0.20, R * 0.075, W * 0.40);
-        for (let i = 0; i < nLug; i++) {
-            [-1, 1].forEach(function(sd) {
-                const a = (i + (sd > 0 ? 0.5 : 0)) / nLug * TAU;
-                const lug = mesh(THREE, lugGeo, M.rubber);
-                lug.position.set(Math.cos(a) * R * 1.0, Math.sin(a) * R * 1.0, sd * W * 0.22);
-                lug.rotation.set(0, 0, a + Math.PI / 2);
-                lug.rotateY(sd * 0.42);
-                g.add(lug);
-            });
+
+        // Banda de rodado.
+        const n = opt.lugs !== undefined ? opt.lugs : Math.max(18, Math.round(TAU * R / (pattern === 'allterrain' ?
+            0.09 : (pattern === 'loader' ? 0.42 : 0.36))));
+        if (n > 0) {
+            const lu = TAU * Rc / n * (pattern === 'allterrain' ? 0.62 : (pattern === 'loader' ? 0.6 : 0.74));
+            const geos = [];
+            if (pattern === 'allterrain') {
+                geos.push([lugGeometry(THREE, lu, W * 0.04, W * 0.22, 0.25, lugH), 0]);
+                geos.push([lugGeometry(THREE, lu, W * 0.25, W * 0.45, -0.15, lugH), 0.5]);
+            } else {
+                geos.push([lugGeometry(THREE, lu, W * 0.07, W * 0.46, pattern === 'loader' ? 0.65 : 0.35, lugH), 0]);
+            }
+            for (let i = 0; i < n; i++) {
+                [-1, 1].forEach(function(sd) {
+                    geos.forEach(function(gd) {
+                        const a = (i + (sd > 0 ? 0.5 : 0) + gd[1]) / n * TAU;
+                        const lug = mesh(THREE, gd[0], M.rubber, Math.cos(a) * Rc * 0.995, Math.sin(a) * Rc * 0.995, 0);
+                        lug.rotation.set(0, 0, a - Math.PI / 2);
+                        if (sd < 0) {
+                            lug.rotateY(Math.PI);
+                        }
+                        g.add(lug);
+                    });
+                });
+            }
+            if (pattern !== 'allterrain') {
+                // Nervio central continuo.
+                const rib = new THREE.TorusGeometry(Rc + lugH * 0.35, lugH * 0.45, 6, 64);
+                const rm = mesh(THREE, rib, M.rubber);
+                rm.scale.set(1, 1, W * 0.07 / (lugH * 0.45));
+                g.add(rm);
+            }
         }
-        // Llanta: disco con taza, aro y pernos.
-        const rimProf = [
-            [0.02, W * 0.18], [rimR * 0.35, W * 0.20], [rimR * 0.45, W * 0.05], [rimR * 0.9, W * 0.02],
-            [rimR * 1.0, W * 0.40], [rimR * 1.04, W * 0.44], [rimR * 1.04, -W * 0.44], [rimR * 0.98, -W * 0.40],
-            [rimR * 0.9, -W * 0.10], [rimR * 0.4, -W * 0.08], [0.02, -W * 0.08]
+
+        // Rotulación de flanco en la cara exterior.
+        const label = opt.label || (BRAND.tire + (pattern === 'allterrain' ? '  A/T  265/65 R17' :
+            '  MINING RADIAL  E-4  ★★'));
+        const ringIn = rimR * 1.18;
+        const ringOut = R * 0.88;
+        const sw = new THREE.RingGeometry(ringIn, ringOut, 64, 1);
+        const swUv = sw.attributes.uv;
+        const swPos = sw.attributes.position;
+        for (let i = 0; i < swPos.count; i++) {
+            // Mapear el anillo al círculo de texto de la textura (radio relativo 0,405 del lienzo).
+            const x = swPos.getX(i);
+            const y = swPos.getY(i);
+            const rr = Math.hypot(x, y);
+            const k = 0.405 / ((ringIn + ringOut) / 2) * (0.92 + (rr - ringIn) / (ringOut - ringIn) * 0.16);
+            swUv.setXY(i, 0.5 + x * k, 0.5 + y * k);
+        }
+        const swMat = new THREE.MeshStandardMaterial({map: sidewallTex(THREE, label), transparent: true, roughness: 0.85,
+            polygonOffset: true, polygonOffsetFactor: -1});
+        const swm = new THREE.Mesh(sw, swMat);
+        swm.position.z = W * 0.512;
+        swm.userData.keep = true;
+        g.add(swm);
+
+        if (alloy) {
+            // Llanta de aleación: barril, rayos dobles, tuercas y tapa central con emblema.
+            const barrel = new THREE.LatheGeometry([[rimR * 1.02, -W * 0.42], [rimR * 1.04, -W * 0.38],
+                [rimR * 0.96, -W * 0.3], [rimR * 0.96, W * 0.3], [rimR * 1.04, W * 0.38], [rimR * 1.02, W * 0.42]]
+                .map(p => new THREE.Vector2(p[0], p[1])), 40);
+            barrel.rotateX(Math.PI / 2);
+            g.add(mesh(THREE, barrel, opt.rimMat || M.alloy));
+            const face = new THREE.CylinderGeometry(rimR * 0.3, rimR * 0.34, W * 0.12, 24);
+            face.rotateX(Math.PI / 2);
+            g.add(mesh(THREE, face, opt.rimMat || M.alloy, 0, 0, W * 0.3));
+            for (let k = 0; k < 6; k++) {
+                const a = k / 6 * TAU;
+                [-0.09, 0.09].forEach(function(da) {
+                    const sp = rbox(THREE, rimR * 0.68, rimR * 0.11, W * 0.08, rimR * 0.03);
+                    const spm = mesh(THREE, sp, opt.rimMat || M.alloy, Math.cos(a + da) * rimR * 0.62,
+                        Math.sin(a + da) * rimR * 0.62, W * 0.32);
+                    spm.rotation.z = a + da;
+                    g.add(spm);
+                });
+                const nut = new THREE.CylinderGeometry(rimR * 0.035, rimR * 0.035, W * 0.06, 6);
+                nut.rotateX(Math.PI / 2);
+                g.add(mesh(THREE, nut, M.chrome, Math.cos(a + 0.52) * rimR * 0.2, Math.sin(a + 0.52) * rimR * 0.2, W * 0.37));
+            }
+            const capd = new THREE.CylinderGeometry(rimR * 0.13, rimR * 0.13, W * 0.04, 20);
+            capd.rotateX(Math.PI / 2);
+            g.add(mesh(THREE, capd, M.black, 0, 0, W * 0.38));
+            return g;
+        }
+
+        // Llanta minera de varias piezas: aro con pestaña, anillo de bloqueo, disco, pernos y mando final.
+        const rimMat = opt.rimMat || M.rim;
+        const rimP = [
+            [rimR * 1.06, -W * 0.44], [rimR * 1.06, -W * 0.40], [rimR * 0.98, -W * 0.37], [rimR * 0.98, W * 0.37],
+            [rimR * 1.07, W * 0.40], [rimR * 1.07, W * 0.44], [rimR * 0.9, W * 0.44], [rimR * 0.9, W * 0.2],
+            [rimR * 0.55, W * 0.16], [rimR * 0.5, W * 0.1], [rimR * 0.02, W * 0.1]
         ].map(p => new THREE.Vector2(p[0], p[1]));
-        const rim = new THREE.LatheGeometry(rimProf, 36);
+        const rim = new THREE.LatheGeometry(rimP, 48);
         rim.rotateX(Math.PI / 2);
-        g.add(mesh(THREE, rim, opt.rimMat || M.rim));
-        const nutGeo = new THREE.CylinderGeometry(R * 0.022, R * 0.022, W * 0.06, 6);
+        g.add(mesh(THREE, rim, rimMat));
+        const lock = new THREE.TorusGeometry(rimR * 1.0, rimR * 0.035, 6, 48);
+        g.add(mesh(THREE, lock, M.steel, 0, 0, W * 0.43));
+        const nN = 24;
+        const nutGeo = new THREE.CylinderGeometry(rimR * 0.04, rimR * 0.04, W * 0.05, 6);
         nutGeo.rotateX(Math.PI / 2);
-        const nN = 18;
         for (let i = 0; i < nN; i++) {
             const a = i / nN * TAU;
-            g.add(mesh(THREE, nutGeo, M.steelLight, Math.cos(a) * rimR * 0.62, Math.sin(a) * rimR * 0.62, W * 0.2));
+            g.add(mesh(THREE, nutGeo, M.steelLight, Math.cos(a) * rimR * 0.72, Math.sin(a) * rimR * 0.72, W * 0.2));
         }
-        const hub = new THREE.CylinderGeometry(rimR * 0.28, rimR * 0.32, W * 0.12, 24);
-        hub.rotateX(Math.PI / 2);
-        g.add(mesh(THREE, hub, M.steel, 0, 0, W * 0.24));
+        const fd = new THREE.CylinderGeometry(rimR * 0.42, rimR * 0.46, W * 0.14, 32);
+        fd.rotateX(Math.PI / 2);
+        g.add(mesh(THREE, fd, M.steel, 0, 0, W * 0.17));
+        const fdc = new THREE.CylinderGeometry(rimR * 0.2, rimR * 0.24, W * 0.08, 24);
+        fdc.rotateX(Math.PI / 2);
+        g.add(mesh(THREE, fdc, rimMat, 0, 0, W * 0.27));
+        for (let i = 0; i < 8; i++) {
+            const a = i / 8 * TAU;
+            g.add(mesh(THREE, nutGeo, M.steelLight, Math.cos(a) * rimR * 0.33, Math.sin(a) * rimR * 0.33, W * 0.25));
+        }
+        g.add(rod(THREE, new THREE.Vector3(rimR * 0.85, 0, W * 0.3), new THREE.Vector3(rimR * 0.85, rimR * 0.06, W * 0.42),
+            rimR * 0.015, M.chrome, 6));
         return g;
     };
 
@@ -611,14 +844,14 @@ define([], function() {
 
         // Ruedas.
         [-1, 1].forEach(function(sd) {
-            const wf = tire(THREE, M, R, TW);
+            const wf = tire(THREE, M, R, TW, {pattern: 'mining', label: BRAND.tire + '  40.00R57  MINING RADIAL  E-4  ★★'});
             wf.position.set(xf, R, sd * zf);
             if (sd < 0) {
                 wf.rotation.y = Math.PI;
             }
             g.add(wf);
             [zr1, zr2].forEach(function(zz) {
-                const wr = tire(THREE, M, R, TW);
+                const wr = tire(THREE, M, R, TW, {pattern: 'mining', label: BRAND.tire + '  40.00R57  MINING RADIAL  E-4  ★★'});
                 wr.position.set(xr, R, sd * zz);
                 if (sd < 0) {
                     wr.rotation.y = Math.PI;
@@ -690,6 +923,16 @@ define([], function() {
             cab.add(ws);
         });
         rb(cab, THREE, M.steel, [0.08, 0.05, 1.2], [1.22, 2.05, 0], 0.02);
+        [-0.4, 0.4].forEach(function(z) {
+            const wp = rb(cab, THREE, M.black, [0.03, 0.75, 0.04], [1.2, 1.45, z], 0.01);
+            wp.rotation.x = 0.5;
+        });
+        // Puerta lateral con marco y manilla, pasamanos.
+        rb(cab, THREE, M.plastic, [1.4, 0.03, 0.02], [0.05, 2.1, -1.215], 0.005);
+        rb(cab, THREE, M.plastic, [0.03, 2.0, 0.02], [0.75, 1.1, -1.215], 0.005);
+        rb(cab, THREE, M.plastic, [0.03, 2.0, 0.02], [-0.65, 1.1, -1.215], 0.005);
+        rb(cab, THREE, M.chrome, [0.2, 0.05, 0.05], [0.55, 1.1, -1.24], 0.01);
+        cab.add(rod(THREE, new THREE.Vector3(-0.9, 0.3, -1.3), new THREE.Vector3(-0.9, 1.9, -1.3), 0.025, M.yellow, 6));
         cab.position.set(4.1, 4.21, -2.35);
         g.add(cab);
         // Espejos, filtros de aire, escapes, baliza.
@@ -754,17 +997,46 @@ define([], function() {
             rb(g, THREE, M.yellow, [0.5, BY - 2.6, 0.45], [1.6, (BY + 2.25) / 2 - 0.15, sd * 0.85], 0.06);
             hydraulic(g, THREE, M, [0.9, 2.3, sd * 1.35], [-0.6, BY + 0.05, sd * 1.5], 0.24);
         });
-        // Calcomanías de flota y luces traseras.
+        // Rotulación: número de flota, marca y modelo; luces y franjas reflectantes.
         const num = number || ('C-' + Math.round(100 + payload / 3));
+        const model = 'HT ' + Math.round(payload);
         [-1, 1].forEach(function(sd) {
             const d = decal(THREE, num, 1.9, 0.7, '#151515');
             d.position.set(-1.3, BY + 1.55, sd * (BW / 2 + 0.25));
-            if (sd < 0) {
-                d.rotation.y = Math.PI;
-            }
-            g.add(d);
+            const br = decal(THREE, BRAND.heavy, 2.6, 0.5, '#151515');
+            br.position.set(-4.4, BY + 1.15, sd * (BW / 2 + 0.25));
+            const md = decal(THREE, model, 1.0, 0.28, '#151515');
+            md.position.set(4.2, 3.35, sd * 1.33);
+            [d, br, md].forEach(function(o) {
+                if (sd < 0) {
+                    o.rotation.y = Math.PI;
+                }
+                g.add(o);
+            });
             rb(g, THREE, M.taillight, [0.08, 0.25, 0.4], [-4.85, 2.1, sd * 0.85], 0.03);
+            rb(g, THREE, M.amber, [0.08, 0.2, 0.25], [-4.85, 2.45, sd * 0.85], 0.03);
+            // Guardabarros traseros y expulsores de roca entre duales.
+            rb(g, THREE, M.plastic, [0.06, 1.1, 1.2], [xr - 2.1, 1.0, sd * (zr1 - 0.55)], 0.02);
+            g.add(rod(THREE, new THREE.Vector3(xr + 0.2, 2.6, sd * (zr1 - TW * 0.54)), new THREE.Vector3(xr + 0.6,
+                R * 2 - 0.15, sd * (zr1 - TW * 0.54)), 0.07, M.steel, 8));
+            // Indicadores de carga útil (verde/ámbar/rojo) en las esquinas de la cubierta.
+            [M.green, M.amber, M.taillight].forEach(function(mt, i) {
+                g.add(mesh(THREE, new THREE.SphereGeometry(0.08, 10, 8), mt, 5.6, 4.55 + i * 0.2, sd * (W / 2 - 0.2)));
+            });
         });
+        // Cola de la tolva con franjas reflectantes y marca frontal sobre el radiador.
+        const tailStripe = mesh(THREE, new THREE.PlaneGeometry(BW - 0.6, 0.35), M.chevron, -7.95, BY + 0.5, 0);
+        tailStripe.rotation.y = -Math.PI / 2;
+        tailStripe.rotateX(-0.42);
+        g.add(tailStripe);
+        const front = decal(THREE, BRAND.heavy, 2.2, 0.42, '#151515');
+        front.position.set(5.62, 3.95, 0);
+        front.rotation.y = Math.PI / 2;
+        g.add(front);
+        const fb = badge(THREE, BRAND.heavy, 0.9, 0.22, {bg: '#151515'});
+        fb.position.set(5.77, 3.95 - 0.55, 0);
+        fb.rotation.y = Math.PI / 2;
+        g.add(fb);
 
         // Carga (separada para poder mostrarla u ocultarla).
         const heapGeo = new THREE.PlaneGeometry(8.0, BW - 0.4, 24, 12);
@@ -907,7 +1179,7 @@ define([], function() {
                 }
                 up.add(lv);
             }
-            const d = decal(THREE, 'MINASLAB 4100', 6.5, 1.0, '#c48a00');
+            const d = decal(THREE, BRAND.heavy + '  RS-4100', 6.5, 1.0, '#c48a00');
             d.position.set(-2.6, 6.6, sd * 4.73);
             if (sd < 0) {
                 d.rotation.y = Math.PI;
@@ -1041,6 +1313,14 @@ define([], function() {
                 g.add(lv);
             }
         });
+        [-1, 1].forEach(function(sd) {
+            const d = decal(THREE, BRAND.heavy + ' DR-271', 3.4, 0.5, '#151515');
+            d.position.set(-2.2, 4.75, sd * 2.24);
+            if (sd < 0) {
+                d.rotation.y = Math.PI;
+            }
+            g.add(d);
+        });
         // Colector de polvo y estanques.
         g.add(mesh(THREE, new THREE.CylinderGeometry(0.75, 0.75, 2.4, 20), M.yellow, 1.6, 3.4, 1.6));
         rb(g, THREE, M.yellow, [1.6, 1.4, 1.5], [1.8, 2.9, -1.6], 0.2);
@@ -1113,68 +1393,151 @@ define([], function() {
         const M = mats(THREE);
         const g = new THREE.Group();
         const R = 1.25;
+        const TW = 0.95;
+        const lab = BRAND.tire + '  35/65R33  L-5  ROCK';
         [[2.4, 1], [2.4, -1], [-2.4, 1], [-2.4, -1]].forEach(function(p) {
-            const w = tire(THREE, M, R, 0.95);
+            const w = tire(THREE, M, R, TW, {pattern: 'loader', label: lab});
             w.position.set(p[0], R, p[1] * 1.75);
             if (p[1] < 0) {
                 w.rotation.y = Math.PI;
             }
             g.add(w);
+            // Guardafangos sobre cada rueda.
+            const fender = new THREE.TorusGeometry(R + 0.18, 0.05, 6, 20, Math.PI * 0.7);
+            const fm = mesh(THREE, fender, M.yellow, p[0], R, p[1] * 1.75);
+            fm.rotation.z = Math.PI * 0.15;
+            fm.scale.z = 9;
+            g.add(fm);
         });
-        // Bastidor trasero, motor y contrapeso.
-        rb(g, THREE, M.yellow, [5.0, 1.6, 2.4], [-2.6, 2.2, 0], 0.2);
-        rb(g, THREE, M.yellow, [3.0, 1.9, 2.8], [-3.3, 3.4, 0], 0.3);
-        rb(g, THREE, M.grille, [0.2, 1.2, 2.2], [-4.85, 3.3, 0], 0.04);
-        rb(g, THREE, M.yellow, [0.8, 1.4, 3.0], [-5.2, 1.9, 0], 0.25);
-        // Cabina.
+
+        // Bastidor trasero, sala de motor inclinada, contrapeso redondeado.
+        rb(g, THREE, M.yellow, [5.2, 1.4, 2.3], [-2.6, 2.1, 0], 0.2);
+        const hood = new THREE.Shape();
+        hood.moveTo(-5.3, 0);
+        hood.lineTo(-1.6, 0);
+        hood.lineTo(-1.6, 1.7);
+        hood.lineTo(-4.6, 1.45);
+        hood.quadraticCurveTo(-5.3, 1.4, -5.35, 0.9);
+        hood.closePath();
+        const hg = new THREE.ExtrudeGeometry(hood, {depth: 2.5, bevelEnabled: true, bevelSize: 0.12, bevelThickness: 0.12,
+            bevelSegments: 3, curveSegments: 8});
+        hg.translate(0, 2.75, -1.25);
+        g.add(mesh(THREE, hg, M.yellow));
+        [-1, 1].forEach(function(sd) {
+            for (let k = 0; k < 3; k++) {
+                const lv = mesh(THREE, new THREE.PlaneGeometry(0.7, 0.8), M.louver, -4.2 + k * 0.85, 3.7, sd * 1.38);
+                if (sd < 0) {
+                    lv.rotation.y = Math.PI;
+                }
+                g.add(lv);
+            }
+        });
+        rb(g, THREE, M.grille, [0.12, 1.1, 2.1], [-5.45, 3.4, 0], 0.04);
+        const cw = new THREE.CylinderGeometry(1.0, 1.0, 3.1, 24, 1, false, Math.PI / 2, Math.PI);
+        cw.rotateX(Math.PI / 2);
+        const cwm = mesh(THREE, cw, M.yellow, -5.25, 1.8, 0);
+        cwm.scale.set(0.55, 1, 1);
+        g.add(cwm);
+        [-1, 1].forEach(function(sd) {
+            rb(g, THREE, M.taillight, [0.06, 0.18, 0.3], [-5.82, 2.3, sd * 1.1], 0.03);
+            rb(g, THREE, M.headlight, [0.06, 0.2, 0.3], [-5.82, 2.0, sd * 1.1], 0.03);
+        });
+        g.add(rod(THREE, new THREE.Vector3(-2.6, 4.4, 0.7), new THREE.Vector3(-2.6, 5.5, 0.7), 0.13, M.steel, 14));
+        g.add(mesh(THREE, new THREE.CylinderGeometry(0.3, 0.3, 0.6, 16), M.black, -3.6, 4.65, -0.6));
+
+        // Cabina con estructura ROPS y grandes vidrios.
         const cab = new THREE.Group();
-        rb(cab, THREE, M.yellow, [2.2, 2.3, 2.2], [0, 1.15, 0], 0.16);
-        [[1.12, 0, Math.PI / 2], [-1.12, 0, -Math.PI / 2]].forEach(function(p) {
-            const w = mesh(THREE, new THREE.PlaneGeometry(1.9, 1.3), M.glass, p[0], 1.45, p[1]);
+        rb(cab, THREE, M.yellow, [2.3, 0.5, 2.3], [0, 0.25, 0], 0.08);
+        [[1.05, 1.05], [1.05, -1.05], [-1.05, 1.05], [-1.05, -1.05]].forEach(function(p) {
+            rb(cab, THREE, M.yellow, [0.14, 2.1, 0.14], [p[0], 1.5, p[1]], 0.04);
+        });
+        rb(cab, THREE, M.yellow, [2.6, 0.2, 2.6], [0, 2.6, 0], 0.08);
+        [[1.08, 0, Math.PI / 2], [-1.08, 0, -Math.PI / 2]].forEach(function(p) {
+            const w = mesh(THREE, new THREE.PlaneGeometry(1.95, 1.9), M.glass, p[0], 1.5, p[1]);
             w.rotation.y = p[2];
             cab.add(w);
         });
         [-1, 1].forEach(function(sd) {
-            const w = mesh(THREE, new THREE.PlaneGeometry(1.8, 1.3), M.glass, 0, 1.45, sd * 1.11);
-            if (sd < 0) {
-                w.rotation.y = Math.PI;
-            }
+            const w = mesh(THREE, new THREE.PlaneGeometry(1.95, 1.9), M.glass, 0, 1.5, sd * 1.08);
             cab.add(w);
         });
-        cab.position.set(-0.9, 3.0, 0);
-        g.add(cab);
-        // Articulación y bastidor delantero.
-        g.add(mesh(THREE, new THREE.CylinderGeometry(0.45, 0.45, 1.2, 18), M.steel, 0.2, 2.1, 0));
-        rb(g, THREE, M.yellow, [3.2, 1.3, 1.8], [2.0, 2.0, 0], 0.2);
-        // Brazos de levante, balancín y balde.
+        rb(cab, THREE, M.black, [0.03, 0.8, 0.04], [1.1, 1.3, 0], 0.01);
         [-1, 1].forEach(function(sd) {
-            const arm = rb(g, THREE, M.yellow, [4.6, 0.55, 0.4], [3.9, 3.0, sd * 1.05], 0.12);
-            arm.rotation.z = -0.38;
-            hydraulic(g, THREE, M, [1.8, 2.2, sd * 1.3], [3.8, 3.4, sd * 1.25], 0.17);
+            rb(cab, THREE, M.headlight, [0.1, 0.18, 0.3], [1.3, 2.62, sd * 0.85], 0.03);
+            rb(cab, THREE, M.headlight, [0.1, 0.18, 0.3], [-1.3, 2.62, sd * 0.85], 0.03);
         });
-        rb(g, THREE, M.yellow, [0.5, 1.6, 0.5], [3.4, 3.9, 0], 0.12);
-        hydraulic(g, THREE, M, [1.6, 3.4, 0], [3.3, 4.4, 0], 0.17);
+        cab.add(mesh(THREE, new THREE.CylinderGeometry(0.11, 0.11, 0.2, 10), M.amber, -0.6, 2.82, 0));
+        cab.position.set(-0.9, 2.8, 0);
+        g.add(cab);
+        stairs(g, THREE, M, [-1.2, 0.45, 2.75], [-0.55, 2.8, 1.45], 0.6);
+        railing(g, THREE, M.yellow, [[-2.2, 2.85, 1.2], [0.4, 2.85, 1.2]], 1.0);
+
+        // Articulación central y bastidor delantero.
+        g.add(mesh(THREE, new THREE.CylinderGeometry(0.45, 0.45, 1.3, 18), M.steel, 0.2, 2.1, 0));
+        rb(g, THREE, M.yellow, [3.4, 1.4, 1.9], [2.1, 2.05, 0], 0.22);
+
+        // Brazos de levante curvos (perfil extruido) y varillaje en Z.
+        const arm = new THREE.Shape();
+        arm.moveTo(0, -0.35);
+        arm.quadraticCurveTo(2.0, -0.1, 4.6, -1.7);
+        arm.lineTo(4.75, -1.15);
+        arm.quadraticCurveTo(2.2, 0.55, 0, 0.35);
+        arm.closePath();
+        const ag = new THREE.ExtrudeGeometry(arm, {depth: 0.32, bevelEnabled: true, bevelSize: 0.06, bevelThickness: 0.06,
+            bevelSegments: 2, curveSegments: 10});
+        ag.translate(0, 0, -0.16);
+        [-1, 1].forEach(function(sd) {
+            g.add(mesh(THREE, ag, M.yellow, 1.6, 3.4, sd * 1.05));
+            hydraulic(g, THREE, M, [1.5, 1.9, sd * 1.32], [3.5, 3.05, sd * 1.28], 0.17);
+            g.add(mesh(THREE, new THREE.CylinderGeometry(0.2, 0.2, 0.5, 14), M.steel, 1.6, 3.4, sd * 1.05).rotateX(Math.PI / 2));
+        });
+        rb(g, THREE, M.yellow, [0.4, 0.4, 2.1], [4.0, 2.55, 0], 0.1);
+        const bell = rb(g, THREE, M.yellow, [0.45, 2.0, 0.45], [3.6, 3.9, 0], 0.12);
+        bell.rotation.z = -0.25;
+        hydraulic(g, THREE, M, [1.4, 3.3, 0], [3.35, 4.7, 0], 0.18);
+        g.add(rod(THREE, new THREE.Vector3(3.9, 3.0, 0), new THREE.Vector3(5.7, 1.6, 0), 0.14, M.yellow, 10));
+
+        // Balde con placas laterales, labio y dientes.
         const bshape = new THREE.Shape();
         bshape.moveTo(0, 0);
-        bshape.lineTo(1.9, -0.1);
-        bshape.lineTo(1.8, 0.25);
-        bshape.quadraticCurveTo(0.5, 0.2, 0.2, 1.6);
-        bshape.lineTo(-0.15, 1.7);
+        bshape.lineTo(1.95, -0.1);
+        bshape.lineTo(1.85, 0.22);
+        bshape.quadraticCurveTo(0.45, 0.25, 0.2, 1.75);
+        bshape.lineTo(-0.15, 1.85);
         bshape.closePath();
-        const bg = new THREE.ExtrudeGeometry(bshape, {depth: 4.2, bevelEnabled: true, bevelSize: 0.06,
-            bevelThickness: 0.06, bevelSegments: 2});
-        bg.translate(0, 0, -2.1);
+        const bg = new THREE.ExtrudeGeometry(bshape, {depth: 4.1, bevelEnabled: true, bevelSize: 0.05,
+            bevelThickness: 0.05, bevelSegments: 2});
+        bg.translate(0, 0, -2.05);
         g.add(mesh(THREE, bg, M.steel, 5.7, 0.35, 0));
-        for (let k = 0; k < 7; k++) {
+        const side = new THREE.Shape();
+        side.moveTo(0, 0);
+        side.lineTo(1.95, -0.1);
+        side.quadraticCurveTo(1.0, 1.4, -0.15, 1.85);
+        side.closePath();
+        const sg = new THREE.ExtrudeGeometry(side, {depth: 0.08, bevelEnabled: false});
+        [-1, 1].forEach(function(sd) {
+            g.add(mesh(THREE, sg, M.yellow, 5.7, 0.35, sd * 2.1 - 0.04));
+        });
+        rb(g, THREE, M.steelLight, [0.35, 0.1, 4.2], [7.55, 0.27, 0], 0.03);
+        for (let k = 0; k < 8; k++) {
             const tooth = new THREE.ConeGeometry(0.1, 0.5, 6);
             tooth.rotateZ(-Math.PI / 2);
-            g.add(mesh(THREE, tooth, M.steelLight, 7.75, 0.3, -1.8 + k * 0.6));
+            g.add(mesh(THREE, tooth, M.steelLight, 7.85, 0.27, -1.85 + k * 0.53));
         }
-        stairs(g, THREE, M, [-2.4, 0.5, 2.6], [-1.6, 3.0, 1.5], 0.6);
+
+        // Rotulación.
         [-1, 1].forEach(function(sd) {
-            rb(g, THREE, M.headlight, [0.1, 0.25, 0.35], [0.2, 5.15, sd * 0.85], 0.04);
+            const d = decal(THREE, BRAND.heavy + ' WL-994', 2.4, 0.4, '#151515');
+            d.position.set(-3.4, 3.05, sd * 1.4);
+            if (sd < 0) {
+                d.rotation.y = Math.PI;
+            }
+            g.add(d);
         });
-        g.add(mesh(THREE, new THREE.CylinderGeometry(0.11, 0.11, 0.2, 10), M.amber, -1.2, 5.45, 0));
+        const rearBadge = decal(THREE, BRAND.heavy, 1.4, 0.3, '#151515');
+        rearBadge.position.set(-5.84, 1.7, 0);
+        rearBadge.rotation.y = -Math.PI / 2;
+        g.add(rearBadge);
         const out = bake(THREE, g);
         out.userData.kind = 'loader';
         return out;
@@ -1185,7 +1548,9 @@ define([], function() {
     // ---------------------------------------------------------------------
 
     /**
-     * Camioneta doble cabina de faena (pértiga con banderín, baliza, barra antivuelco).
+     * Camioneta doble cabina de faena, roja (color habitual en las mineras), con
+     * equipamiento minero: defensa, pértiga con banderín, baliza, barra de luces,
+     * jaula antivuelco, snorkel, pisaderas, cintas reflectantes y número interno.
      *
      * @param {Object} THREE
      * @param {string} number número interno
@@ -1194,88 +1559,188 @@ define([], function() {
     const pickup = function(THREE, number) {
         const M = mats(THREE);
         const g = new THREE.Group();
-        const W = 1.85;
-        const prof = new THREE.Shape();
-        prof.moveTo(-2.65, 0.45);
-        prof.lineTo(2.55, 0.45);
-        prof.quadraticCurveTo(2.75, 0.5, 2.72, 0.85);
-        prof.lineTo(2.6, 1.05);
-        prof.quadraticCurveTo(2.1, 1.12, 1.25, 1.18);
-        prof.lineTo(0.55, 1.78);
-        prof.quadraticCurveTo(0.45, 1.86, 0.2, 1.86);
-        prof.lineTo(-1.05, 1.86);
-        prof.quadraticCurveTo(-1.18, 1.84, -1.2, 1.7);
-        prof.lineTo(-1.25, 1.2);
-        prof.lineTo(-2.65, 1.2);
-        prof.closePath();
-        const body = new THREE.ExtrudeGeometry(prof, {depth: W - 0.2, bevelEnabled: true, bevelSize: 0.08,
-            bevelThickness: 0.1, bevelSegments: 4, curveSegments: 10});
-        body.translate(0, 0, -(W - 0.2) / 2);
-        g.add(mesh(THREE, body, M.white));
-        // Vidrios.
-        const glassSide = new THREE.Shape();
-        glassSide.moveTo(1.15, 1.22);
-        glassSide.lineTo(0.52, 1.74);
-        glassSide.lineTo(-1.05, 1.74);
-        glassSide.lineTo(-1.12, 1.22);
-        glassSide.closePath();
-        const gs = new THREE.ShapeGeometry(glassSide);
-        // Vidrio de doble cara: la misma silueta sirve para ambos costados.
-        [-1, 1].forEach(function(sd) {
-            g.add(mesh(THREE, gs, M.glass, 0, 0, sd * (W / 2 + 0.005)));
-        });
-        const wind = mesh(THREE, new THREE.PlaneGeometry(1.55, 0.78), M.glass, 0.86, 1.47, 0);
-        wind.rotation.set(0, Math.PI / 2, 0);
-        wind.rotateX(0.7);
+        const W = 1.86;
+        const paint = M.redPaint;
+        const xr = -1.55;
+        const xf = 1.55;
+        const wr = 0.39;
+
+        // Carrocería inferior: perfil lateral con pasos de rueda reales.
+        const lo = new THREE.Shape();
+        lo.moveTo(-2.68, 0.52);
+        lo.lineTo(xr - 0.5, 0.52);
+        lo.absarc(xr, 0.42, 0.5, Math.PI * 0.94, Math.PI * 0.06, true);
+        lo.lineTo(xf - 0.5, 0.52);
+        lo.absarc(xf, 0.42, 0.5, Math.PI * 0.94, Math.PI * 0.06, true);
+        lo.lineTo(2.55, 0.52);
+        lo.quadraticCurveTo(2.72, 0.56, 2.72, 0.78);
+        lo.lineTo(2.68, 1.0);
+        lo.quadraticCurveTo(2.5, 1.08, 2.1, 1.1);
+        lo.lineTo(1.0, 1.16);
+        lo.lineTo(-1.15, 1.16);
+        lo.lineTo(-1.15, 1.22);
+        lo.lineTo(-2.68, 1.22);
+        lo.lineTo(-2.7, 0.62);
+        lo.closePath();
+        const lower = new THREE.ExtrudeGeometry(lo, {depth: W - 0.14, bevelEnabled: true, bevelSize: 0.06,
+            bevelThickness: 0.07, bevelSegments: 4, curveSegments: 14});
+        lower.translate(0, 0, -(W - 0.14) / 2);
+        g.add(mesh(THREE, lower, paint));
+
+        // Cabina (invernadero) más angosta con parabrisas inclinado.
+        const cab = new THREE.Shape();
+        cab.moveTo(1.02, 0);
+        cab.lineTo(0.38, 0.62);
+        cab.quadraticCurveTo(0.28, 0.7, 0.12, 0.7);
+        cab.lineTo(-0.98, 0.7);
+        cab.quadraticCurveTo(-1.1, 0.69, -1.12, 0.58);
+        cab.lineTo(-1.16, 0);
+        cab.closePath();
+        const cg = new THREE.ExtrudeGeometry(cab, {depth: W - 0.34, bevelEnabled: true, bevelSize: 0.07,
+            bevelThickness: 0.08, bevelSegments: 4, curveSegments: 10});
+        cg.translate(0, 1.15, -(W - 0.34) / 2);
+        g.add(mesh(THREE, cg, paint));
+        // Vidrios: parabrisas, laterales y luneta.
+        const wind = mesh(THREE, new THREE.PlaneGeometry(0.84, W - 0.42), M.glass, 0.72, 1.48, 0);
+        wind.rotation.set(-Math.PI / 2, -0.78, 0);
+        wind.rotation.order = 'YXZ';
+        wind.rotation.set(-Math.PI / 2 + 0.0, 0, 0);
+        wind.rotateY(0.78);
         g.add(wind);
-        // Pilares de puertas y manillas.
+        const sideGlass = new THREE.Shape();
+        sideGlass.moveTo(0.93, 1.2);
+        sideGlass.lineTo(0.42, 1.73);
+        sideGlass.lineTo(-1.02, 1.73);
+        sideGlass.lineTo(-1.06, 1.2);
+        sideGlass.closePath();
+        const sgGeo = new THREE.ShapeGeometry(sideGlass);
         [-1, 1].forEach(function(sd) {
-            rb(g, THREE, M.black, [0.05, 0.5, 0.02], [-0.25, 1.47, sd * (W / 2 + 0.01)], 0.01);
-            rb(g, THREE, M.black, [0.16, 0.04, 0.03], [0.35, 1.12, sd * (W / 2 + 0.02)], 0.01);
-            rb(g, THREE, M.black, [0.16, 0.04, 0.03], [-0.75, 1.12, sd * (W / 2 + 0.02)], 0.01);
+            g.add(mesh(THREE, sgGeo, M.glass, 0, 0, sd * ((W - 0.34) / 2 + 0.09)));
+            // Pilar B y marcos de puertas.
+            rb(g, THREE, M.plastic, [0.07, 0.56, 0.02], [-0.12, 1.46, sd * ((W - 0.34) / 2 + 0.1)], 0.01);
+            [[0.98, 0.62], [-0.12, 0.62], [-1.12, 0.62]].forEach(function(p) {
+                rb(g, THREE, M.plastic, [0.012, 0.6, 0.012], [p[0], 0.86, sd * (W / 2 + 0.005)], 0.004);
+            });
+            rb(g, THREE, M.plastic, [2.1, 0.012, 0.012], [-0.07, 0.55, sd * (W / 2 + 0.005)], 0.004);
+            [0.32, -0.75].forEach(function(x) {
+                rb(g, THREE, M.chrome, [0.17, 0.035, 0.035], [x, 1.08, sd * (W / 2 + 0.02)], 0.01);
+            });
+            // Espejo retrovisor.
+            g.add(rod(THREE, new THREE.Vector3(0.9, 1.25, sd * (W / 2 - 0.05)), new THREE.Vector3(0.95, 1.32,
+                sd * (W / 2 + 0.18)), 0.02, M.plastic, 6));
+            rb(g, THREE, M.plastic, [0.1, 0.2, 0.26], [0.95, 1.38, sd * (W / 2 + 0.24)], 0.04);
+            // Cinta reflectante roja/blanca y logo de la minera en la puerta.
+            rb(g, THREE, M.reflect, [5.1, 0.05, 0.01], [-0.05, 0.72, sd * (W / 2 + 0.012)], 0.004);
+            const logo = decal(THREE, BRAND.company, 0.95, 0.12, '#ffffff');
+            logo.position.set(0.25, 0.9, sd * (W / 2 + 0.03));
+            if (sd < 0) {
+                logo.rotation.y = Math.PI;
+            }
+            g.add(logo);
+            const num = decal(THREE, number || 'CAM-23', 0.5, 0.15, '#ffffff');
+            num.position.set(-0.78, 0.9, sd * (W / 2 + 0.03));
+            if (sd < 0) {
+                num.rotation.y = Math.PI;
+            }
+            g.add(num);
+            // Pisaderas tubulares y guardafangos.
+            g.add(tube(THREE, [[1.0, 0.42, sd * (W / 2 + 0.08)], [-1.1, 0.42, sd * (W / 2 + 0.08)]], 0.035, M.plastic));
+            [xr, xf].forEach(function(x) {
+                const flare = new THREE.TorusGeometry(0.52, 0.045, 6, 20, Math.PI * 0.88);
+                const fm = mesh(THREE, flare, M.plastic, x, 0.42, sd * (W / 2 + 0.01));
+                fm.rotation.z = Math.PI * 0.06;
+                fm.scale.z = 2.2;
+                g.add(fm);
+            });
+            rb(g, THREE, M.plastic, [0.03, 0.3, 0.28], [xr - 0.62, 0.45, sd * (W / 2 - 0.2)], 0.01);
         });
-        // Pisadera (pick-up) y barra antivuelco.
-        rb(g, THREE, M.black, [1.3, 0.04, W - 0.3], [-1.95, 1.215, 0], 0.01);
+        const rear = mesh(THREE, new THREE.PlaneGeometry(0.3, W - 0.5), M.glass, -1.17, 1.48, 0);
+        rear.rotation.set(-Math.PI / 2, 0, 0);
+        rear.rotateY(-Math.PI / 2 + 0.08);
+        g.add(rear);
+
+        // Frente: parrilla con emblema, focos, defensa minera y barra de luces.
+        rb(g, THREE, M.plastic, [0.06, 0.32, 1.25], [2.71, 0.84, 0], 0.03);
+        for (let k = 0; k < 4; k++) {
+            rb(g, THREE, M.chrome, [0.02, 0.025, 1.18], [2.745, 0.73 + k * 0.075, 0], 0.008);
+        }
+        const emb = badge(THREE, BRAND.pickup, 0.34, 0.09, {bg: '#151515'});
+        emb.position.set(2.775, 0.9, 0);
+        emb.rotation.y = Math.PI / 2;
+        g.add(emb);
         [-1, 1].forEach(function(sd) {
-            rb(g, THREE, M.white, [1.45, 0.12, 0.08], [-1.95, 1.25, sd * (W / 2 - 0.12)], 0.03);
+            const hl = rb(g, THREE, M.headlight, [0.06, 0.12, 0.34], [2.66, 0.93, sd * 0.72], 0.03);
+            hl.rotation.y = sd * -0.12;
+            rb(g, THREE, M.amber, [0.04, 0.05, 0.12], [2.68, 0.84, sd * 0.84], 0.01);
+            rb(g, THREE, M.headlight, [0.05, 0.08, 0.08], [2.95, 0.68, sd * 0.45], 0.02);
         });
+        rb(g, THREE, M.plastic, [0.2, 0.22, W + 0.04], [2.72, 0.6, 0], 0.07);
+        // Defensa (bullbar) tubular.
+        g.add(tube(THREE, [[2.8, 0.48, -0.78], [2.98, 0.62, -0.72], [3.0, 1.02, -0.55], [3.0, 1.06, 0], [3.0, 1.02, 0.55],
+            [2.98, 0.62, 0.72], [2.8, 0.48, 0.78]], 0.038, M.black, true));
+        [-0.32, 0.32].forEach(function(z) {
+            g.add(rod(THREE, new THREE.Vector3(2.98, 0.5, z), new THREE.Vector3(3.0, 1.05, z * 0.9), 0.03, M.black, 8));
+        });
+        g.add(rod(THREE, new THREE.Vector3(2.82, 0.75, -0.72), new THREE.Vector3(2.98, 0.75, 0.72), 0.025, M.black, 6));
+        // Snorkel (lado derecho).
+        g.add(tube(THREE, [[2.0, 0.95, 0.94], [1.05, 1.15, 0.97], [0.82, 1.55, 0.88], [0.66, 1.92, 0.82]], 0.045, M.plastic,
+            true));
+        rb(g, THREE, M.plastic, [0.18, 0.12, 0.12], [0.66, 1.96, 0.82], 0.03);
+        // Techo: barra de luces, baliza y antena.
+        rb(g, THREE, M.plastic, [0.12, 0.08, 1.35], [0.3, 1.94, 0], 0.03);
+        for (let k = -2; k <= 2; k++) {
+            rb(g, THREE, M.headlight, [0.03, 0.06, 0.2], [0.37, 1.94, k * 0.25], 0.01);
+        }
+        g.add(mesh(THREE, new THREE.CylinderGeometry(0.09, 0.11, 0.16, 16), M.amber, -0.6, 1.98, 0));
+        g.add(rod(THREE, new THREE.Vector3(-0.9, 1.9, -0.6), new THREE.Vector3(-0.95, 2.6, -0.6), 0.006, M.black, 4));
+
+        // Pick-up abierta: piso con revestimiento, bordes, jaula antivuelco y portalón.
+        rb(g, THREE, M.plastic, [1.45, 0.03, W - 0.26], [-1.95, 1.2, 0], 0.01);
         [-1, 1].forEach(function(sd) {
-            g.add(tube(THREE, [[-1.4, 1.22, sd * 0.78], [-1.4, 2.05, sd * 0.78], [-1.6, 2.05, sd * 0.6]], 0.04, M.black,
-                true));
+            rb(g, THREE, paint, [1.52, 0.1, 0.1], [-1.95, 1.27, sd * (W / 2 - 0.08)], 0.04);
         });
-        g.add(tube(THREE, [[-1.4, 2.05, -0.78], [-1.4, 2.05, 0.78]], 0.04, M.black));
-        rb(g, THREE, M.amber, [0.25, 0.1, 1.1], [0.0, 1.95, 0], 0.03);
-        // Parachoques, defensa, faros.
-        rb(g, THREE, M.black, [0.25, 0.32, W + 0.05], [2.75, 0.62, 0], 0.08);
-        g.add(tube(THREE, [[2.85, 0.5, -0.6], [3.05, 0.75, -0.55], [3.05, 1.0, -0.4], [3.05, 1.0, 0.4], [3.05, 0.75, 0.55],
-            [2.85, 0.5, 0.6]], 0.04, M.black, true));
+        rb(g, THREE, paint, [0.1, 0.1, W - 0.12], [-2.68, 1.27, 0], 0.04);
         [-1, 1].forEach(function(sd) {
-            rb(g, THREE, M.headlight, [0.06, 0.12, 0.32], [2.73, 0.95, sd * 0.65], 0.03);
-            rb(g, THREE, M.taillight, [0.05, 0.25, 0.12], [-2.73, 0.95, sd * 0.82], 0.02);
+            g.add(tube(THREE, [[-1.25, 1.22, sd * 0.78], [-1.25, 2.02, sd * 0.72], [-2.2, 1.95, sd * 0.72],
+                [-2.6, 1.25, sd * 0.78]], 0.035, M.black, true));
         });
-        rb(g, THREE, M.black, [0.2, 0.25, W + 0.05], [-2.75, 0.55, 0], 0.06);
-        // Ruedas con arcos.
-        [[1.65, 1], [1.65, -1], [-1.55, 1], [-1.55, -1]].forEach(function(p) {
-            const w = tire(THREE, M, 0.4, 0.27, {lugs: 0, rimMat: M.steelLight});
-            w.position.set(p[0], 0.4, p[1] * 0.8);
+        g.add(tube(THREE, [[-1.25, 2.02, -0.72], [-1.25, 2.02, 0.72]], 0.035, M.black));
+        g.add(tube(THREE, [[-2.2, 1.95, -0.72], [-2.2, 1.95, 0.72]], 0.03, M.black));
+        // Trasera: focos, parachoques con cinta, patente.
+        [-1, 1].forEach(function(sd) {
+            rb(g, THREE, M.taillight, [0.04, 0.32, 0.14], [-2.73, 0.98, sd * 0.84], 0.02);
+        });
+        rb(g, THREE, M.chrome, [0.18, 0.2, W - 0.1], [-2.76, 0.6, 0], 0.05);
+        const plate = decal(THREE, 'FTRZ·21', 0.36, 0.12, '#111111');
+        plate.material.color = new THREE.Color(0xffffff);
+        const plateBg = mesh(THREE, new THREE.PlaneGeometry(0.4, 0.14), M.white, -2.86, 0.6, 0);
+        plateBg.rotation.y = -Math.PI / 2;
+        g.add(plateBg);
+        plate.position.set(-2.865, 0.6, 0);
+        plate.rotation.y = -Math.PI / 2;
+        g.add(plate);
+        const tailLogo = badge(THREE, BRAND.pickup, 0.4, 0.1, {bg: '#151515'});
+        tailLogo.position.set(-2.72, 1.05, 0);
+        tailLogo.rotation.y = -Math.PI / 2;
+        g.add(tailLogo);
+
+        // Ruedas todo terreno con llanta de aleación.
+        [[xf, 1], [xf, -1], [xr, 1], [xr, -1]].forEach(function(p) {
+            const w = tire(THREE, M, wr, 0.27, {pattern: 'allterrain'});
+            w.position.set(p[0], wr, p[1] * 0.78);
             if (p[1] < 0) {
                 w.rotation.y = Math.PI;
             }
             g.add(w);
-            const arch = new THREE.TorusGeometry(0.46, 0.05, 6, 16, Math.PI);
-            g.add(mesh(THREE, arch, M.black, p[0], 0.45, p[1] * (W / 2 + 0.02)));
         });
-        // Pértiga con banderín y número interno.
-        g.add(rod(THREE, new THREE.Vector3(-2.45, 1.2, 0.82), new THREE.Vector3(-2.45, 5.4, 0.82), 0.022, M.white, 6));
-        g.add(mesh(THREE, new THREE.PlaneGeometry(0.6, 0.4), M.orange, -2.15, 5.15, 0.82));
-        [-1, 1].forEach(function(sd) {
-            const d = decal(THREE, number || 'SUP-07', 0.7, 0.2, '#0d47a1');
-            d.position.set(-1.9, 0.95, sd * (W / 2 + 0.06));
-            if (sd < 0) {
-                d.rotation.y = Math.PI;
-            }
-            g.add(d);
-        });
+        // Pértiga con banderín (obligatoria en faena) en la esquina trasera izquierda.
+        g.add(rod(THREE, new THREE.Vector3(-2.55, 1.3, -0.8), new THREE.Vector3(-2.55, 5.6, -0.8), 0.016, M.white, 6));
+        for (let k = 0; k < 6; k++) {
+            g.add(rod(THREE, new THREE.Vector3(-2.55, 1.6 + k * 0.7, -0.8), new THREE.Vector3(-2.55, 1.95 + k * 0.7, -0.8),
+                0.019, M.taillight, 6));
+        }
+        g.add(mesh(THREE, new THREE.PlaneGeometry(0.62, 0.42), M.orange, -2.24, 5.35, -0.8));
+        g.add(mesh(THREE, new THREE.SphereGeometry(0.035, 8, 6), M.amber, -2.55, 5.63, -0.8));
         const out = bake(THREE, g);
         out.userData.kind = 'pickup';
         return out;
@@ -1359,6 +1824,14 @@ define([], function() {
             g.add(rod(THREE, new THREE.Vector3(0.9, y, 0.35), new THREE.Vector3(1.5, y + 0.9, 0.35), 0.025, M.red, 4));
             g.add(rod(THREE, new THREE.Vector3(1.5, y, -0.35), new THREE.Vector3(1.5, y, 0.35), 0.02, M.red, 4));
         }
+        [-1, 1].forEach(function(sd) {
+            const d = decal(THREE, BRAND.drill + ' DD-1500', 2.4, 0.38, '#ffffff');
+            d.position.set(-1.6, 1.95, sd * 1.02);
+            if (sd < 0) {
+                d.rotation.y = Math.PI;
+            }
+            g.add(d);
+        });
         hydraulic(g, THREE, M, [-0.6, 0.4, 0], [1.2, 5.0, 0], 0.11);
         rb(g, THREE, M.steel, [0.6, 0.8, 0.6], [1.2, 6.5, 0], 0.08);
         g.add(rod(THREE, new THREE.Vector3(1.2, 0.2, 0), new THREE.Vector3(1.2, 6.2, 0), 0.05, M.steelLight, 8));
@@ -1552,6 +2025,7 @@ define([], function() {
     };
 
     return {
+        BRAND: BRAND, badge: badge,
         siteOffice: siteOffice, crusherStation: crusherStation,
         mats: mats, rbox: rbox, bake: bake, tire: tire, haulTruck: haulTruck, ropeShovel: ropeShovel, drillRig: drillRig,
         wheelLoader: wheelLoader, pickup: pickup, worker: worker, diamondDrill: diamondDrill, totalStation: totalStation

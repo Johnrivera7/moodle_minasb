@@ -1617,7 +1617,13 @@ define(['mod_minaslab/eval_models'], function(models) {
         ropeShovel: ropeShovel, drillRig: drillRig, pickup: pickup, worker: worker, signPost: signPost,
         wheelLoader: THREE => models.wheelLoader(THREE), diamondDrill: THREE => models.diamondDrill(THREE),
         siteOffice: (THREE, title) => models.siteOffice(THREE, title), crusherStation: THREE => models.crusherStation(THREE),
-        wheel: (THREE, M, r, w) => models.tire(THREE, models.mats(THREE), r, w),
+        wheel: function(THREE, M, r, w) {
+            const g = new THREE.Group();
+            const t = models.tire(THREE, models.mats(THREE), r, w);
+            t.position.y = r;
+            g.add(t);
+            return g;
+        },
         signTexture: signTexture, stake: stake, totalStation: totalStation, bermAlong: bermAlong,
         scatterRocks: scatterRocks, dust: dust, water: water, placeAlong: placeAlong, detailTextures: detailTextures
     };
