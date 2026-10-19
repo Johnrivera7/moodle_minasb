@@ -102,12 +102,8 @@ define(['mod_minaslab/eval_kit'], function(kit) {
      */
     const rampTruck = function(world, pit, payload, phase, info) {
         const THREE = world.THREE;
-        const M = kit.materials(THREE);
-        const empty = kit.haulTruck(THREE, M, payload, false);
-        const loaded = kit.haulTruck(THREE, M, payload, true);
-        const grp = new THREE.Group();
-        grp.add(empty);
-        grp.add(loaded);
+        const truckNo = 'C-' + (140 + Math.round(phase * 40));
+        const grp = kit.haulTruck(THREE, null, payload, false, truckNo);
         world.scene.add(grp);
         if (info) {
             world.addPickable(grp, info);
@@ -129,8 +125,9 @@ define(['mod_minaslab/eval_kit'], function(kit) {
             const a = pit.ringPoint(p.q, p.r + off);
             const c = pit.ringPoint(nb.q, nb.r + off);
             kit.placeAlong(grp, {x: a.x, y: p.y, z: a.z}, {x: c.x, y: nb.y, z: c.z});
-            empty.visible = !goingUp;
-            loaded.visible = goingUp;
+            if (grp.userData.load) {
+                grp.userData.load.visible = goingUp;
+            }
         });
         return grp;
     };
@@ -256,8 +253,7 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         world.addFocus('block', {x: bx, y: floorY, z: bz}, Math.max(blk.length, blk.width) * 1.7, 0.55, 1.0);
 
         // Pala, camión estacionado y camión en la rampa.
-        const shovel = place(world, kit.ropeShovel(THREE, M), bx + blk.length / 2 + 26, bz + 22, terrain, Math.PI);
-        shovel.scale.setScalar(0.62);
+        const shovel = place(world, kit.wheelLoader(THREE), bx + blk.length / 2 + 24, bz + 24, terrain, Math.PI * 0.8);
         const truckInfo = {
             id: 'truck', title: 'Camión de extracción',
             rows: [['Capacidad nominal', fmt(data.truck.payload) + ' t'], ['Tipo', 'Camión mecánico de alto tonelaje'],
@@ -583,19 +579,14 @@ define(['mod_minaslab/eval_kit'], function(kit) {
                     fmt(iv.from, 2), fmt(iv.to, 2), fmt(iv.grade, 2)])}};
             world.addPickable(casing, hinfo);
             world.addLabel({x: h.x, y: y0 + 4, z: h.z}, tag(h.id), '', hinfo);
-            world.addFocus(h.id, {x: h.x, y: y0 - 50, z: h.z}, 120, 0.5, 0.25);
+            world.addFocus(h.id, {x: h.x, y: y0 - 22, z: h.z}, 110, 0.5, 0.55);
+            world.focusLayers[h.id] = 'underground';
             world.snapPoints = world.snapPoints || [];
             world.snapPoints.push(new THREE.Vector3(h.x, y0, h.z));
         });
         // Perforadora diamantina en un sondaje.
         const dh = data.holes[2];
-        const ddRig = new THREE.Group();
-        const mast = kit.box(THREE, 0.6, 12, 0.6, M.red);
-        mast.position.y = 6;
-        ddRig.add(mast);
-        const unit = kit.box(THREE, 4, 2.2, 2.4, M.red);
-        unit.position.set(-2.6, 1.1, 0);
-        ddRig.add(unit);
+        const ddRig = kit.diamondDrill(THREE);
         place(world, ddRig, dh.x + 1, dh.z, terrain, 0.3);
 
         // Secciones transversales.
@@ -637,6 +628,7 @@ define(['mod_minaslab/eval_kit'], function(kit) {
             lab.visible = false;
             undergroundLabels.push(lab);
             world.addFocus(s.id, {x: s.x, y: -ob.depth, z: 0}, 260, Math.PI / 2 - 0.35, 0.2);
+            world.focusLayers[s.id] = 'underground';
         });
 
         // Bloque a categorizar (proyección en superficie).
@@ -1074,6 +1066,7 @@ define(['mod_minaslab/eval_kit'], function(kit) {
      */
     const build = function(world, id, data) {
         world.snapPoints = world.snapPoints || [];
+        world.focusLayers = {};
         const fn = builders[id];
         if (!fn) {
             throw new Error('Escena desconocida: ' + id);

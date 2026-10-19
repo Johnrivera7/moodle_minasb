@@ -847,6 +847,12 @@ define([
         if (fb) {
             fb.addEventListener('click', () => {
                 this.world.focusOn(task.focus);
+                const layer = (this.world.focusLayers || {})[task.focus];
+                const lb = layer ? this.root.querySelector('[data-layer="' + layer + '"]') : null;
+                if (lb && lb.getAttribute('aria-pressed') !== 'true') {
+                    lb.setAttribute('aria-pressed', 'true');
+                    this.setLayer(layer, true);
+                }
                 if (task.tool && task.tool !== 'none') {
                     this.setTool(task.tool);
                 }
