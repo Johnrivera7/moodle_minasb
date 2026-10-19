@@ -1,50 +1,93 @@
 # MinasLab — `mod_minaslab`
 
-Plugin de actividad para **Moodle 4.5+**: laboratorio virtual de Ingeniería en Minas (escenarios 3D/2D, catálogo curricular, progreso y calificación).
+Plugin de actividad para **Moodle 5.3** (probado con PHP 8.5): laboratorio virtual 3D de Ingeniería en Minas e Ingeniería Civil en Minas.
 
-**Repositorio:** [github.com/Johnrivera7/moodle_minasb](https://github.com/Johnrivera7/moodle_minasb)
+Incluye:
+
+- **5 evaluaciones prácticas semestrales** (★), una por semestre (I a V). Tienen escenas 3D realistas, datos únicos por estudiante, corrección automática en servidor, guardado continuo del avance y calificación en el libro de calificaciones.
+- **84 prácticas formativas** del catálogo curricular (3 por asignatura).
+
+**Repositorio:** [github.com/Johnrivera7/moodle_minasb](https://github.com/Johnrivera7/moodle_minasb) · rama de Moodle 5.3: `MOODLE_53`.
+
+## Requisitos
+
+| Componente | Versión |
+|---|---|
+| Moodle | 5.3 (`$plugin->requires = 2026100500`) |
+| PHP | 8.5 (probado); las versiones soportadas por Moodle 5.3 |
+| Navegador | Con WebGL 2 (Chrome, Edge, Firefox, Safari recientes) |
 
 ## Instalación
 
-1. Copiar esta carpeta como `mod/minaslab` dentro del árbol de Moodle (o clonar este repositorio en esa ruta).
-2. Como administrador: **Notificaciones** para ejecutar el instalador / actualización de la base de datos.
-3. Añadir la actividad desde un curso: **Añadir actividad o recurso → MinasLab**.
-4. Tras cada actualización del plugin: **Administración del sitio → Desarrollo → Purgar todas las cachés** (sobre todo si cambian módulos AMD o cadenas de idioma).
+1. Copiar esta carpeta como `public/mod/minaslab` dentro de Moodle 5.3. En Moodle 5.x el código web vive en `public/`.
+2. Como administrador, ir a **Administración del sitio → Notificaciones** o ejecutar `php admin/cli/upgrade.php`.
+3. Purgar cachés después de cada actualización.
+4. En un curso: **Añadir actividad o recurso → MinasLab** y elegir una práctica. Las evaluaciones semestrales aparecen con ★ al inicio de cada semestre.
 
-### Si la consola muestra error en `three.min.js` o “WebGL no disponible”
+La carpeta `Ingeniería en Minas PCE/` (documentación curricular institucional) **no** forma parte del plugin y está excluida en `.gitignore`. No debe copiarse al servidor.
 
-El motor 3D se carga desde `mod/minaslab/js/three.min.js`. El bundle oficial de Three (r150+) incluye una **primera línea** `console.warn(...),` necesaria para que el UMD sea válido. Si falta (archivo recortado), aparece `SyntaxError: Function statements require a function name` y no existe `window.THREE`.
+## Evaluaciones prácticas semestrales
 
-**Desde la versión 2026033117**, `lab.js` descarga el texto, añade esa línea si falta y ejecuta vía blob URL (suele bastar). Si sigue fallando, sustituye `js/three.min.js` por el `build/three.min.js` íntegro de `three@0.159.x` y purga cachés. Los avisos de Moodle sobre *drawer region* no vienen de MinasLab.
+| Sem. | Asignatura eje (PNA) | Escena 3D | Tareas evaluadas |
+|---|---|---|---|
+| I | Bases de las Operaciones Mineras | Faena escuela a rajo con portal de galería | Inspección DS 132, ángulo interrampa, cubicación, transporte, pendiente de rampa, muestreo por canal, ciclo minero |
+| II | Geología Estructural y de Minas | Pared de banco con 3 familias de diaclasas | Rumbo, manteo aparente, Markland, FS de falla plana, RQD, Q de Barton, replanteo |
+| III | Prospección y Evaluación de Yacimientos | Campaña de sondajes sobre un pórfido + banco piloto | Compósito, QA/QC, cubicación por secciones, ley de corte, categorización, factor de carga, secuencia de carguío |
+| IV | Sistema de Explotación a Rajo Abierto | Rajo de cobre en operación con flota animada | Ángulos interrampa y global, ancho de rampa, Taylor, flota, destino de bloques, ventilación |
+| V | Proyecto Minero | Emplazamiento: rajo, planta, río, campamento, sitios de relaves | Vida útil, ingresos, VAN, TIR, sensibilidad, bombeo, sitio de relaves, ciclo de vida |
 
-## Interacción y escenas 3D
+La matriz completa de tareas, fórmulas, tolerancias, RA y competencias está en [`docs/EVALUACIONES_PRACTICAS.md`](docs/EVALUACIONES_PRACTICAS.md).
 
-- **Navegación**: órbita con arrastre (ratón o trackpad), zoom con rueda; en trackpad suele funcionar pellizco o **Ctrl + desplazamiento** (comportamiento similar a “zoom con Ctrl” en navegadores).
-- **Tajo abierto (`pit_3d`)**:
-  - **Vistas rápidas**: ISO, planta aproximada y perfil (animación suave de cámara).
-  - **Medición**: modo “Medir distancia” — dos clics sobre el modelo (terreno, bancos, rampa, equipos) para ver una distancia en metros en el escenario didáctico (1 unidad ≈ 1 m).
-  - **Capas**: mostrar u ocultar **contornos** (líneas de nivel y bancos) y **equipos** (camiones y excavadora).
-- **Otras escenas** (túnel, voladura/álgebra, ventilación, etc.) comparten el mismo patrón de órbita y zoom donde aplica.
+### Configuración por actividad
 
-Los textos de ayuda y botones se cargan desde los idiomas (`lang/*/minaslab.php`) y el payload embebido en `view.php`.
+En la sección *Evaluación práctica semestral* del formulario se definen:
 
-## Informes (docentes / gestores)
+- intentos por tarea (1–5);
+- penalización por reintento (0–50 %);
+- mostrar el desarrollo al cerrar la tarea;
+- exigencia para nota 4,0 en escala 1,0–7,0.
 
-- **Informe por curso** (listado de prácticas MinasLab, inscritos, progreso, finalizados, nota media):  
-  `mod/minaslab/course_report.php?id=<ID_DEL_CURSO>`
-- **Detalle por actividad** (tabla de estudiantes, borrador %, nota final, CSV):  
-  `mod/minaslab/instance_report.php?id=<ID_DEL_CURSO>&instance=<ID_INSTANCIA_MINASLAB>`  
-  (`instance` es el `id` de la tabla `mdl_minaslab`, no el `cmid`.)
+### Informes y gestión docente
 
-Acceso: capacidad **`mod/minaslab:viewcoursereport`** (por defecto profesor no editor, profesor editor y gestor). También hay un botón al **índice del módulo** en el curso (`mod/minaslab/index.php?id=...`) y un enlace en el **menú de navegación del curso** cuando el tema lo muestra.
+- `mod/minaslab/results.php?id=<cmid>`: puntaje por tarea, logro por RA, nota 1–7, calificación y exportación CSV.
+- `mod/minaslab/review.php?id=<cmid>&userid=<id>`: revisión detallada (respuestas, solución, borradores, libreta de campo).
+- **Reiniciar** un estudiante (capacidad `mod/minaslab:manageattempts`) le entrega un caso nuevo con otros datos.
+- Los informes por curso de las prácticas formativas siguen disponibles en `course_report.php` e `instance_report.php`.
 
-## Catálogo y documentación
+### Capacidades
 
-Las prácticas disponibles están definidas en `classes/local/activity_catalog_data.php` (84 entradas). La documentación descriptiva está en `docs/DOCUMENTACION_ACTIVIDADES.md`.
+| Capacidad | Uso | Arquetipos |
+|---|---|---|
+| `mod/minaslab:view` | Ver la actividad | todos |
+| `mod/minaslab:submit` | Responder evaluaciones | estudiante |
+| `mod/minaslab:manageattempts` | Vista previa, revisión y reinicio | profesor editor, gestor |
+| `mod/minaslab:viewcoursereport` | Informes | profesores, gestor |
 
-## Código front (AMD)
+## Arquitectura
 
-Los módulos fuente están en `amd/src/` (p. ej. `scenes3d.js`, `lab.js`, `lab_practices.js`). Moodle sirve los bundles en `amd/build/`; en este proyecto se mantienen **copiados** desde `src` tras cambios (o mediante el flujo de `grunt` si lo configuras en tu entorno).
+- **Servidor**
+  - `classes/local/evaluation/`: generador determinista (`rng`), definición de cada semestre (`semester1`…`semester5`), corrección (`grader`) y registro.
+  - `classes/local/evaluation_manager.php`: intentos, penalización, borradores, cierre y calificación.
+  - `classes/external/` y `db/services.php`: servicios AJAX `mod_minaslab_get_evaluation`, `mod_minaslab_submit_answer`, `mod_minaslab_save_draft` y `mod_minaslab_finish_evaluation`.
+  - `db/install.xml`: tabla `minaslab_response` (respuesta corregida por tarea).
+- **Cliente (AMD)**
+  - `eval_three`: carga Three.js r160 como módulo ES.
+  - `eval_kit`: motor de render con cielo procedural, iluminación PMREM, sombras suaves y tono ACES. Genera un terreno con rajo de bancos exactos y rampa tallada, más equipos mineros y herramientas.
+  - `eval_scenes`: las 5 escenas.
+  - `eval_app`: interfaz, tareas, libreta de campo y autoguardado.
+- **Respaldo y restauración** incluyen el estado y las respuestas. La semilla del caso se conserva al restaurar.
+- **Privacidad**: proveedor completo (`core_userlist_provider`) para `minaslab_user_state` y `minaslab_response`.
+
+### Compilación de JavaScript
+
+Los fuentes están en `amd/src/` y los minificados en `amd/build/`. Para compilar con el grunt de Moodle:
+
+```bash
+cd public/mod/minaslab
+npx grunt amd --force
+```
+
+Los módulos nuevos `eval_*` pasan `eslint` sin errores. `--force` es necesario mientras los módulos heredados (`lab*.js`, `scenes3d.js`) no completen su JSDoc.
 
 ## Autoría
 
@@ -52,4 +95,4 @@ Diseño curricular e integración: John Rivera González.
 
 ## Licencia
 
-GPL v3 (igual que Moodle).
+GPL v3 (igual que Moodle). Three.js: licencia MIT (ver `thirdpartylibs.xml`).

@@ -31,6 +31,38 @@ class mod_minaslab_mod_form extends moodleform_mod {
 
         $mform->setDefault('activity_key', \mod_minaslab\local\activity_catalog::default_key());
 
+        // Parámetros de la evaluación práctica semestral (solo aplican a las actividades ★).
+        $evalkeys = array_keys(\mod_minaslab\local\evaluation\registry::all());
+        $formativekeys = implode('|', array_diff(array_keys(\mod_minaslab\local\activity_catalog::entries()), $evalkeys));
+        $mform->addElement('header', 'minaslab_evaluation', get_string('eval_settings', 'mod_minaslab'));
+        $mform->addElement('static', 'eval_settings_info', '', get_string('eval_settings_info', 'mod_minaslab'));
+
+        $mform->addElement('select', 'eval_maxtries', get_string('eval_maxtries', 'mod_minaslab'),
+            array_combine(range(1, 5), range(1, 5)));
+        $mform->setDefault('eval_maxtries', 3);
+        $mform->addHelpButton('eval_maxtries', 'eval_maxtries', 'mod_minaslab');
+
+        $penalties = [];
+        foreach ([0, 10, 20, 25, 33, 50] as $p) {
+            $penalties[(string) ($p / 100)] = $p . ' %';
+        }
+        $mform->addElement('select', 'eval_penalty', get_string('eval_penalty', 'mod_minaslab'), $penalties);
+        $mform->setDefault('eval_penalty', '0.2');
+        $mform->addHelpButton('eval_penalty', 'eval_penalty', 'mod_minaslab');
+
+        $mform->addElement('selectyesno', 'eval_showsolution', get_string('eval_showsolution', 'mod_minaslab'));
+        $mform->setDefault('eval_showsolution', 1);
+        $mform->addHelpButton('eval_showsolution', 'eval_showsolution', 'mod_minaslab');
+
+        $mform->addElement('select', 'eval_passpercent', get_string('eval_passpercent', 'mod_minaslab'),
+            [50 => '50 %', 55 => '55 %', 60 => '60 %', 70 => '70 %']);
+        $mform->setDefault('eval_passpercent', 60);
+        $mform->addHelpButton('eval_passpercent', 'eval_passpercent', 'mod_minaslab');
+
+        foreach (['eval_settings_info', 'eval_maxtries', 'eval_penalty', 'eval_showsolution', 'eval_passpercent'] as $el) {
+            $mform->hideIf($el, 'activity_key', 'in', $formativekeys);
+        }
+
         $this->standard_grading_coursemodule_elements();
 
         $this->standard_coursemodule_elements();
@@ -48,6 +80,19 @@ class mod_minaslab_mod_form extends moodleform_mod {
 
     public function data_preprocessing(&$defaultvalues) {
         parent::data_preprocessing($defaultvalues);
+
+        $config = is_array($defaultvalues) ? ($defaultvalues['config'] ?? '') : ($defaultvalues->config ?? '');
+        $cfg = $config ? (json_decode($config, true) ?: []) : [];
+        foreach (['maxtries', 'penalty', 'showsolution', 'passpercent'] as $k) {
+            if (array_key_exists($k, $cfg)) {
+                $v = $k === 'penalty' ? (string) (float) $cfg[$k] : (int) $cfg[$k];
+                if (is_array($defaultvalues)) {
+                    $defaultvalues['eval_' . $k] = $v;
+                } else {
+                    $defaultvalues->{'eval_' . $k} = $v;
+                }
+            }
+        }
 
         if (!empty($this->current->instance) && !empty($this->current->coursemodule)) {
             // file_prepare_standard_editor() asigna propiedades (p. ej. intro_editor) sobre stdClass; con array falla en PHP 8.2+.
