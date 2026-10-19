@@ -82,5 +82,35 @@ function xmldb_minaslab_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026033140, 'minaslab');
     }
 
+    if ($oldversion < 2026101800) {
+        // Evaluaciones prácticas semestrales: respuestas corregidas por tarea.
+        $table = new xmldb_table('minaslab_response');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('minaslabid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('taskid', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('response', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('fraction', XMLDB_TYPE_NUMBER, '10, 5', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('score', XMLDB_TYPE_NUMBER, '10, 5', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('tries', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('status', XMLDB_TYPE_CHAR, '16', null, XMLDB_NOTNULL, null, 'new');
+        $table->add_field('closed', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('minaslabid', XMLDB_KEY_FOREIGN, ['minaslabid'], 'minaslab', ['id']);
+        $table->add_key('userid', XMLDB_KEY_FOREIGN, ['userid'], 'user', ['id']);
+        $table->add_index('minaslab_user_task', XMLDB_INDEX_UNIQUE, ['minaslabid', 'userid', 'taskid']);
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        $field = new xmldb_field('activity_key', XMLDB_TYPE_CHAR, '128', null, XMLDB_NOTNULL, null,
+            'ev_s1_operaciones', 'introformat');
+        $dbman->change_field_default(new xmldb_table('minaslab'), $field);
+
+        upgrade_mod_savepoint(true, 2026101800, 'minaslab');
+    }
+
     return true;
 }

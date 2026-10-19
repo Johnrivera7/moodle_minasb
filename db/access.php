@@ -28,6 +28,25 @@ $capabilities = [
         ],
     ],
 
+    'mod/minaslab:submit' => [
+        'riskbitmask' => RISK_SPAM,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes' => [
+            'student' => CAP_ALLOW,
+        ],
+    ],
+
+    'mod/minaslab:manageattempts' => [
+        'riskbitmask' => RISK_DATALOSS,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'archetypes' => [
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+
     /** Informes por curso: actividades, progreso y calificaciones (docentes / gestores). */
     'mod/minaslab:viewcoursereport' => [
         'captype' => 'read',
