@@ -1,12 +1,29 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Funciones de la API de módulos de actividad para MinasLab.
+ *
+ * @package    mod_minaslab
+ * @copyright  2026 John Rivera González
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
 defined('MOODLE_INTERNAL') || die();
 
-/**
- * @param string $feature
- * @return bool|null
- */
 /**
  * Opciones del editor HTML de la descripción (intro), coherentes con mod_form.
  *
@@ -24,20 +41,41 @@ function minaslab_intro_editor_options(\context_module $context): array {
     ];
 }
 
+/**
+ * Funcionalidades soportadas.
+ *
+ * @param string $feature FEATURE_xx
+ * @return mixed
+ */
 function minaslab_supports(string $feature) {
-    switch ($feature) {
-        case FEATURE_MOD_INTRO:
-            return true;
-        case FEATURE_SHOW_DESCRIPTION:
-            return true;
-        case FEATURE_COMPLETION_TRACKS_VIEWS:
-            return true;
-        case FEATURE_GRADE_HAS_GRADE:
-            return true;
-        case FEATURE_BACKUP_MOODLE2:
-            return true;
-        default:
-            return null;
+    return match ($feature) {
+        FEATURE_MOD_INTRO,
+        FEATURE_SHOW_DESCRIPTION,
+        FEATURE_COMPLETION_TRACKS_VIEWS,
+        FEATURE_MODEDIT_DEFAULT_COMPLETION,
+        FEATURE_GRADE_HAS_GRADE,
+        FEATURE_BACKUP_MOODLE2 => true,
+        FEATURE_MOD_PURPOSE => MOD_PURPOSE_ASSESSMENT,
+        FEATURE_MOD_OTHERPURPOSE => MOD_PURPOSE_INTERACTIVECONTENT,
+        default => null,
+    };
+}
+
+/**
+ * Serializa en el campo config los parámetros de la evaluación práctica del formulario.
+ *
+ * @param stdClass $data datos del formulario
+ */
+function minaslab_pack_config(stdClass $data): void {
+    $keys = ['maxtries', 'penalty', 'showsolution', 'passpercent'];
+    $cfg = [];
+    foreach ($keys as $k) {
+        if (property_exists($data, 'eval_' . $k)) {
+            $cfg[$k] = $k === 'penalty' ? (float) $data->{'eval_' . $k} : (int) $data->{'eval_' . $k};
+        }
+    }
+    if ($cfg) {
+        $data->config = json_encode($cfg);
     }
 }
 
@@ -46,6 +84,7 @@ function minaslab_add_instance(object $data, $mform = null): int {
 
     $data->timecreated = time();
     $data->timemodified = $data->timecreated;
+    minaslab_pack_config($data);
     if (empty($data->activity_key) || !\mod_minaslab\local\activity_catalog::is_valid($data->activity_key)) {
         $data->activity_key = \mod_minaslab\local\activity_catalog::default_key();
     }
@@ -74,12 +113,13 @@ function minaslab_update_instance($data, $mform = null): bool {
 
     $data->timemodified = time();
     $data->id = $data->instance;
+    minaslab_pack_config($data);
 
     if (empty($data->activity_key) || !\mod_minaslab\local\activity_catalog::is_valid($data->activity_key)) {
         $data->activity_key = \mod_minaslab\local\activity_catalog::default_key();
     }
 
-    $old = $DB->get_record('minaslab', ['id' => $data->instance], MUST_EXIST);
+    $old = $DB->get_record('minaslab', ['id' => $data->instance], '*', MUST_EXIST);
     $context = context_module::instance($data->coursemodule);
     $opts = minaslab_intro_editor_options($context);
 
@@ -114,6 +154,7 @@ function minaslab_delete_instance(int $id): bool {
     }
 
     \mod_minaslab\local\progress_manager::delete_by_instance($minaslab->id);
+    $DB->delete_records('minaslab_response', ['minaslabid' => $minaslab->id]);
     minaslab_grade_item_delete($minaslab);
 
     $DB->delete_records('minaslab', ['id' => $minaslab->id]);
@@ -260,4 +301,89 @@ function minaslab_update_user_grade(stdClass $minaslab, int $userid, float $rawg
  */
 function minaslab_grade_item_delete(stdClass $minaslab): int {
     return minaslab_grade_item_update($minaslab, true);
+}
+
+/**
+ * Borra la nota de un usuario en el libro de calificaciones (reinicio docente).
+ *
+ * @param stdClass $minaslab
+ * @param int $userid
+ * @return int
+ */
+function minaslab_reset_user_grade(stdClass $minaslab, int $userid): int {
+    global $CFG;
+    require_once($CFG->libdir . '/gradelib.php');
+    $grade = ['userid' => $userid, 'rawgrade' => null];
+    return grade_update('mod/minaslab', $minaslab->course, 'mod', 'minaslab', $minaslab->id, 0, $grade);
+}
+
+/**
+ * Recalcula las notas desde el estado guardado (p. ej. tras cambiar la nota máxima).
+ *
+ * @param stdClass $minaslab
+ * @param int $userid 0 = todos
+ * @param bool $nullifnone
+ */
+function minaslab_update_grades(stdClass $minaslab, int $userid = 0, bool $nullifnone = true): void {
+    global $DB;
+    $params = ['minaslabid' => $minaslab->id, 'completed' => 1];
+    if ($userid) {
+        $params['userid'] = $userid;
+    }
+    $rows = $DB->get_records('minaslab_user_state', $params);
+    foreach ($rows as $row) {
+        $progress = json_decode($row->progressjson ?? '{}', true) ?: [];
+        if (isset($progress['scoreDraft']) && (float) $minaslab->grade > 0) {
+            minaslab_update_user_grade($minaslab, (int) $row->userid,
+                (float) $progress['scoreDraft'] / 100 * (float) $minaslab->grade);
+        }
+    }
+}
+
+/**
+ * Elementos del formulario de reinicio de curso.
+ *
+ * @param MoodleQuickForm $mform
+ */
+function minaslab_reset_course_form_definition(&$mform) {
+    $mform->addElement('header', 'minaslabheader', get_string('modulenameplural', 'mod_minaslab'));
+    $mform->addElement('advcheckbox', 'reset_minaslab_attempts', get_string('reset_attempts', 'mod_minaslab'));
+}
+
+/**
+ * Valores por defecto del formulario de reinicio.
+ *
+ * @param stdClass $course
+ * @return array
+ */
+function minaslab_reset_course_form_defaults($course) {
+    return ['reset_minaslab_attempts' => 1];
+}
+
+/**
+ * Elimina avances y respuestas al reiniciar el curso.
+ *
+ * @param stdClass $data
+ * @return array estado para el informe de reinicio
+ */
+function minaslab_reset_userdata($data) {
+    global $DB;
+    $status = [];
+    if (!empty($data->reset_minaslab_attempts)) {
+        $ids = $DB->get_fieldset_select('minaslab', 'id', 'course = ?', [$data->courseid]);
+        if ($ids) {
+            [$insql, $params] = $DB->get_in_or_equal($ids);
+            $DB->delete_records_select('minaslab_user_state', "minaslabid $insql", $params);
+            $DB->delete_records_select('minaslab_response', "minaslabid $insql", $params);
+        }
+        foreach ($DB->get_records('minaslab', ['course' => $data->courseid]) as $ml) {
+            grade_update('mod/minaslab', $ml->course, 'mod', 'minaslab', $ml->id, 0, null, ['reset' => true]);
+        }
+        $status[] = [
+            'component' => get_string('modulenameplural', 'mod_minaslab'),
+            'item' => get_string('reset_attempts', 'mod_minaslab'),
+            'error' => false,
+        ];
+    }
+    return $status;
 }

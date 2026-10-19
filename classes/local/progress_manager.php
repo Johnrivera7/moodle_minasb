@@ -41,7 +41,7 @@ final class progress_manager {
                 'timemodified' => $now,
             ];
             $DB->update_record('minaslab_user_state', $data);
-            return $DB->get_record('minaslab_user_state', ['id' => $record->id], MUST_EXIST);
+            return $DB->get_record('minaslab_user_state', ['id' => $record->id], '*', MUST_EXIST);
         }
 
         $data = new \stdClass();
@@ -88,7 +88,7 @@ final class progress_manager {
             minaslab_update_user_grade($minaslab, $userid, (float) $data->finalgrade);
         }
 
-        return $DB->get_record('minaslab_user_state', ['id' => $newid], MUST_EXIST);
+        return $DB->get_record('minaslab_user_state', ['id' => $newid], '*', MUST_EXIST);
     }
 
     /**
