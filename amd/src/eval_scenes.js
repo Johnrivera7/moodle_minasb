@@ -64,7 +64,9 @@ define(['mod_minaslab/eval_kit', 'mod_minaslab/eval_models'], function(kit, mode
         const b = pit.bounds;
         const patch = opt.patch || {minX: b.minX - pad, maxX: b.maxX + pad, minZ: b.minZ - pad, maxZ: b.maxZ + pad};
         const area = (patch.maxX - patch.minX) * (patch.maxZ - patch.minZ);
-        const cell = Math.max(opt.minCell || 0.7, Math.sqrt(area / (opt.maxVerts || 240000)));
+        const q = world.quality || {terrain: 1, detail: 1};
+        const cell = Math.max((opt.minCell || 0.7) / Math.sqrt(q.terrain), Math.sqrt(area / ((opt.maxVerts || 240000) *
+            q.terrain)));
         const terrain = kit.buildTerrain(world, {
             seed: opt.seed || 11, pit: pit, patch: patch, cell: cell, relief: opt.relief, pads: opt.pads,
             slope: opt.slope, colors: opt.colors, collar: 0, farHole: opt.farHole
@@ -87,7 +89,8 @@ define(['mod_minaslab/eval_kit', 'mod_minaslab/eval_models'], function(kit, mode
             world.scene.add(bm);
         }
         const fl = pit.floorRadius;
-        kit.scatterRocks(world, opt.rocks || 900, {minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ},
+        kit.scatterRocks(world, Math.round((opt.rocks || 900) * q.detail), {minX: b.minX, maxX: b.maxX, minZ: b.minZ,
+            maxZ: b.maxZ},
             terrain.heightAt, 5, function(x, z) {
                 const k = terrain.sample(x, z).kind;
                 return k === 'berm' || (k === 'floor' && pit.local(x, z).s < pit.R - fl + 12);
@@ -762,7 +765,8 @@ define(['mod_minaslab/eval_kit', 'mod_minaslab/eval_models'], function(kit, mode
         });
         benchPad.y = padY(benchPad.x, benchPad.z);
         const terrain = kit.buildTerrain(world, {
-            seed: 5, relief: 26, patch: {minX: -320, maxX: 340, minZ: -260, maxZ: 260}, cell: 2.2,
+            seed: 5, relief: 26, patch: {minX: -320, maxX: 340, minZ: -260, maxZ: 260},
+            cell: 2.2 / Math.sqrt((world.quality || {terrain: 1}).terrain),
             pads: holePads.concat([benchPad]), colors: {soil: 0xbfa27c, soil2: 0xa1805a}
         });
         world.terrain = terrain;
@@ -1135,7 +1139,8 @@ define(['mod_minaslab/eval_kit', 'mod_minaslab/eval_models'], function(kit, mode
             const d = Math.abs(z - riverZ(x));
             return y - 9 * (1 - kit.smooth(14, 70, d));
         };
-        const ext = kit.buildTerrain(world, {seed: 55, relief: 30, pit: pit, pads: pads, patch: extPatch, cell: 5,
+        const ext = kit.buildTerrain(world, {seed: 55, relief: 30, pit: pit, pads: pads, patch: extPatch,
+            cell: 5 / Math.sqrt((world.quality || {terrain: 1}).terrain),
             modify: carve,
             noFar: true, collar: 0, hole: {minX: b0.minX - 75, maxX: b0.maxX + 75, minZ: b0.minZ - 75, maxZ: b0.maxZ + 75}});
         ext.mesh.position.y = -0.6;

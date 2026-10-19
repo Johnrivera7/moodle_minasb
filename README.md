@@ -5,8 +5,9 @@ Plugin de actividad para **Moodle 5.3** (probado con PHP 8.5): laboratorio virtu
 Incluye:
 
 - **5 evaluaciones prácticas semestrales** (★), una por semestre (I a V). Tienen escenas 3D realistas, datos únicos por estudiante, corrección automática en servidor, guardado continuo del avance y calificación en el libro de calificaciones.
-- **Práctica calificada de ciclo minero** (semestre I, clave `s1_bases_ops_b`). Reemplaza a la antigua práctica formativa del mismo nombre y usa el mismo motor 3D y la misma corrección.
-- **83 prácticas formativas** del catálogo curricular.
+- **Práctica calificada de ciclo minero** (semestre I, clave `s1_bases_ops_b`), con el mismo motor 3D y la misma corrección.
+
+En total, el catálogo tiene **6 prácticas evaluadas**. Las 84 prácticas formativas antiguas (motor anterior con nota autodeclarada) se retiraron en la versión 1.2.0. Al actualizar, cualquier actividad que usara una clave antigua pasa automáticamente a la evaluación práctica de su semestre.
 
 **Repositorio:** [github.com/Johnrivera7/moodle_minasb](https://github.com/Johnrivera7/moodle_minasb) · rama de Moodle 5.3: `MOODLE_53`.
 
@@ -17,6 +18,23 @@ Incluye:
 | Moodle | 5.3 (`$plugin->requires = 2026100500`) |
 | PHP | 8.5 (probado); las versiones soportadas por Moodle 5.3 |
 | Navegador | Con WebGL 2 (Chrome, Edge, Firefox, Safari recientes) |
+
+## Calidad gráfica y requisitos del equipo
+
+Al abrir la actividad, el estudiante elige la calidad gráfica (**Alta**, **Media** o **Baja**). El selector detecta la tarjeta gráfica, recomienda un nivel y puede recordar la elección en el equipo; el botón de calidad en la barra de la escena permite cambiarla. La evaluación y la nota son idénticas en todos los niveles.
+
+| Nivel | Resolución | Sombras | Terreno y detalle | Partículas | Luces nocturnas |
+|---|---|---|---|---|---|
+| Alta | hasta 2× | 4096 px suaves | 100 % | 100 % | 14 |
+| Media | hasta 1,25× | 2048 px | 60 % | 60 % | 8 |
+| Baja | 0,9× | sin sombras | 32 % | 30 % | 4 |
+
+Requisitos estimados (pendiente medir en equipos reales):
+
+- **Mínimo, calidad Baja:** procesador de 4 núcleos, gráficos integrados Intel UHD 620 o AMD Vega 8 y 8 GB de RAM.
+- **Recomendado, calidad Alta:** Intel Iris Xe, AMD Radeon 680M, NVIDIA GTX 1650 o Apple M1, y 16 GB de RAM.
+
+En todos los casos se necesita un navegador actual con aceleración por hardware (WebGL 2).
 
 ## Instalación
 

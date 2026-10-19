@@ -40,7 +40,7 @@ $context = context_module::instance($cm->id);
 require_capability('mod/minaslab:viewcoursereport', context_course::instance($course->id));
 
 if (!evaluation_manager::is_evaluation($minaslab)) {
-    redirect(new moodle_url('/mod/minaslab/instance_report.php', ['id' => $course->id, 'instance' => $minaslab->id]));
+    throw new moodle_exception('invalidactivity', 'mod_minaslab');
 }
 
 $url = new moodle_url('/mod/minaslab/results.php', ['id' => $cm->id]);

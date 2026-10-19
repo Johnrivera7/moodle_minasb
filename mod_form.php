@@ -32,8 +32,6 @@ class mod_minaslab_mod_form extends moodleform_mod {
         $mform->setDefault('activity_key', \mod_minaslab\local\activity_catalog::default_key());
 
         // Parámetros de la evaluación práctica semestral (solo aplican a las actividades ★).
-        $evalkeys = array_keys(\mod_minaslab\local\evaluation\registry::all());
-        $formativekeys = implode('|', array_diff(array_keys(\mod_minaslab\local\activity_catalog::entries()), $evalkeys));
         $mform->addElement('header', 'minaslab_evaluation', get_string('eval_settings', 'mod_minaslab'));
         $mform->addElement('static', 'eval_settings_info', '', get_string('eval_settings_info', 'mod_minaslab'));
 
@@ -59,9 +57,6 @@ class mod_minaslab_mod_form extends moodleform_mod {
         $mform->setDefault('eval_passpercent', 60);
         $mform->addHelpButton('eval_passpercent', 'eval_passpercent', 'mod_minaslab');
 
-        foreach (['eval_settings_info', 'eval_maxtries', 'eval_penalty', 'eval_showsolution', 'eval_passpercent'] as $el) {
-            $mform->hideIf($el, 'activity_key', 'in', $formativekeys);
-        }
 
         $this->standard_grading_coursemodule_elements();
 

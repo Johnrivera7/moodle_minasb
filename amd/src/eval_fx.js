@@ -126,9 +126,12 @@ define([], function() {
     const create = function(world) {
         const THREE = world.THREE;
         const scene = world.scene;
-        const dust = particles(THREE, scene, 2400, {color: 0xb8a284, opacity: 0.55, grow: 2.6, drag: 0.9});
-        const spray = particles(THREE, scene, 900, {color: 0xdfe9ee, opacity: 0.55, grow: 0.8, drag: 1.4, gravity: 6});
-        const haze = particles(THREE, scene, 700, {color: 0xc8b496, opacity: 0.34, grow: 1.4, drag: 0.4});
+        const Q = world.quality || {particles: 1, lights: 14};
+        const pq = Q.particles;
+        const dust = particles(THREE, scene, Math.round(2400 * pq), {color: 0xb8a284, opacity: 0.55, grow: 2.6, drag: 0.9});
+        const spray = particles(THREE, scene, Math.round(900 * pq), {color: 0xdfe9ee, opacity: 0.55, grow: 0.8, drag: 1.4,
+            gravity: 6});
+        const haze = particles(THREE, scene, Math.round(700 * pq), {color: 0xc8b496, opacity: 0.34, grow: 1.4, drag: 0.4});
         const wind = new THREE.Vector3(0.6, 0, 0.3);
         const state = {night: false, fog: false, wind: false};
         const wet = [];
@@ -203,7 +206,7 @@ define([], function() {
         };
 
         const makeLight = function(nl) {
-            if (nl.light || lights.length >= 14) {
+            if (nl.light || lights.length >= Q.lights) {
                 return;
             }
             const o = nl.opt;
@@ -315,7 +318,7 @@ define([], function() {
                     return;
                 }
                 const k = isWet(p.x, p.z) ? 0.15 : 1;
-                e.acc += dt * Math.min(40, v * 3.2) * k * (state.wind ? 1.4 : 1);
+                e.acc += dt * Math.min(40, v * 3.2) * k * (state.wind ? 1.4 : 1) * pq;
                 const sc = e.obj.scale.x;
                 while (e.acc > 1) {
                     e.acc -= 1;
@@ -335,7 +338,7 @@ define([], function() {
                 if (v < 0.5 || v > 80) {
                     return;
                 }
-                s.acc += dt * 160;
+                s.acc += dt * 160 * pq;
                 const q = s.obj.quaternion;
                 const back = new THREE.Vector3(-1, 0, 0).applyQuaternion(q);
                 while (s.acc > 1) {
@@ -371,7 +374,7 @@ define([], function() {
             // Polvo en suspensión con viento.
             if (state.wind && fx.area) {
                 const a = fx.area;
-                fx.hazeAcc = (fx.hazeAcc || 0) + dt * 70;
+                fx.hazeAcc = (fx.hazeAcc || 0) + dt * 70 * pq;
                 for (; fx.hazeAcc > 1; fx.hazeAcc--) {
                     const x = a.minX + Math.random() * (a.maxX - a.minX);
                     const z = a.minZ + Math.random() * (a.maxZ - a.minZ);

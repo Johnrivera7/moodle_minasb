@@ -28,11 +28,6 @@ $summaries = \mod_minaslab\local\course_report_service::get_instance_summaries((
 
 echo $OUTPUT->box(get_string('coursereport_intro', 'mod_minaslab'), 'generalbox');
 
-$catalogcount = count(\mod_minaslab\local\activity_catalog::entries());
-echo $OUTPUT->box(
-    get_string('coursereport_catalog_hint', 'mod_minaslab', $catalogcount),
-    'generalbox'
-);
 
 if ($instances === []) {
     echo $OUTPUT->notification(get_string('coursereport_no_instances', 'mod_minaslab'), 'info');
@@ -56,11 +51,12 @@ $table->data = [];
 
 foreach ($instances as $m) {
     $sum = $summaries[$m->id] ?? null;
-    $detailurl = new moodle_url('/mod/minaslab/instance_report.php', [
-        'id' => $course->id,
-        'instance' => $m->id,
-    ]);
-    $link = html_writer::link($detailurl, get_string('coursereport_open_detail', 'mod_minaslab'));
+    $link = '';
+    if (!empty($m->cmid)) {
+        $link = html_writer::link(new moodle_url('/mod/minaslab/results.php', ['id' => $m->cmid]),
+            get_string('coursereport_open_detail', 'mod_minaslab'));
+    }
+    $entry = \mod_minaslab\local\activity_catalog::get($m->activity_key);
     $activityline = format_string($m->name);
     if (!empty($m->cmid)) {
         $viewurl = new moodle_url('/mod/minaslab/view.php', ['id' => $m->cmid]);
@@ -68,7 +64,7 @@ foreach ($instances as $m) {
     }
     $table->data[] = [
         $activityline,
-        s($m->activity_key),
+        s($entry['title'] ?? $m->activity_key),
         s($m->catalog_subject),
         $sum ? $sum->enrolled : '—',
         $sum ? $sum->withstate : '—',

@@ -45,7 +45,9 @@ define([
         night: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
         wind: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/>',
         fog: '<path d="M4 9h16M2 13h20M5 17h14M8 5h8"/>',
-        fs: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'
+        fs: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+        quality: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/>' +
+            '<circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'
     };
     const icon = name => '<svg viewBox="0 0 24 24" aria-hidden="true" class="mlx-ico">' + ICONS[name] + '</svg>';
 
@@ -129,6 +131,8 @@ define([
             self.draft.compass = Array.isArray(self.draft.compass) ? self.draft.compass : [];
             self.layout();
             self.renderSide();
+            return self.chooseQuality();
+        }).then(function() {
             return Loader.load(self.cfg.threeUrl);
         }).then(function(THREE) {
             self.buildWorld(THREE);
@@ -212,7 +216,7 @@ define([
         const vp = this.$('.mlx-viewport');
         vp.innerHTML = '';
         const sceneId = this.data.meta.scene;
-        const world = kit.createWorld(vp, THREE, {extent: scenes.extentFor(sceneId, this.data.scene),
+        const world = kit.createWorld(vp, THREE, {extent: scenes.extentFor(sceneId, this.data.scene), quality: this.quality,
             // Sol de verano en el norte de Chile; en II, luz de mañana sobre la pared mapeada.
             sunAz: sceneId === 's2' ? 118 : 300, sunEl: sceneId === 's2' ? 34 : 38});
         this.world = world;
@@ -279,6 +283,90 @@ define([
         }
     };
 
+    /**
+     * Detecta la tarjeta gráfica y sugiere un nivel de calidad.
+     *
+     * @returns {{gpu: string, level: string}}
+     */
+    const detectGpu = function() {
+        let gpu = '';
+        try {
+            const c = document.createElement('canvas');
+            const gl = c.getContext('webgl2') || c.getContext('webgl');
+            if (!gl) {
+                return {gpu: '', level: 'low', nowebgl: true};
+            }
+            const ext = gl.getExtension('WEBGL_debug_renderer_info');
+            gpu = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+        } catch (e) {
+            return {gpu: '', level: 'medium'};
+        }
+        const g = gpu.toLowerCase();
+        let level = 'medium';
+        if (/swiftshader|llvmpipe|software|microsoft basic/.test(g)) {
+            level = 'low';
+        } else if (/rtx|gtx|radeon rx|radeon pro|apple m\d|apple gpu|quadro|arc a/.test(g)) {
+            level = 'high';
+        } else if (/intel\(r\) hd|hd graphics [2-5]\d{2}\b|uhd graphics 6\d{2}|mali|adreno|powervr/.test(g)) {
+            level = 'low';
+        }
+        return {gpu: gpu, level: level};
+    };
+    const QKEY = 'mod_minaslab_quality';
+
+    /**
+     * Selector de calidad gráfica al abrir la actividad (se puede recordar por equipo).
+     *
+     * @returns {Promise}
+     */
+    App.prototype.chooseQuality = function() {
+        const self = this;
+        const t = this.t;
+        let saved = null;
+        try {
+            saved = window.localStorage.getItem(QKEY);
+        } catch (e) {
+            saved = null;
+        }
+        if (saved && kit.QUALITY[saved]) {
+            this.quality = saved;
+            return Promise.resolve(saved);
+        }
+        const det = detectGpu();
+        const vp = this.$('.mlx-viewport');
+        return new Promise(function(resolve) {
+            const opts = ['high', 'medium', 'low'];
+            vp.innerHTML = '<div class="mlx-quality" role="dialog" aria-labelledby="mlx-q-title">' +
+                '<h4 id="mlx-q-title">' + esc(t('quality_title')) + '</h4>' +
+                '<p class="mlx-quality__intro">' + esc(t('quality_intro')) + '</p>' +
+                '<div class="mlx-quality__opts" role="radiogroup">' + opts.map(o => '<label class="mlx-quality__opt' +
+                    (o === det.level ? ' is-rec' : '') + '"><input type="radio" name="mlx-q" value="' + o + '"' +
+                    (o === det.level ? ' checked' : '') + '><span class="mlx-quality__name">' + esc(t('quality_' + o)) +
+                    (o === det.level ? ' <em>' + esc(t('quality_recommended')) + '</em>' : '') + '</span>' +
+                    '<span class="mlx-quality__desc">' + esc(t('quality_' + o + '_desc')) + '</span></label>').join('') +
+                '</div>' +
+                '<p class="mlx-quality__gpu">' + esc(det.nowebgl ? t('webgl_error') : t('quality_detected', det.gpu ||
+                    t('quality_unknown'))) + '</p>' +
+                '<label class="mlx-quality__remember"><input type="checkbox" checked> ' + esc(t('quality_remember')) +
+                '</label>' +
+                '<button type="button" class="btn btn-primary btn-lg">' + esc(t('quality_start')) + '</button></div>';
+            vp.querySelector('button').addEventListener('click', function() {
+                const level = (vp.querySelector('input[name="mlx-q"]:checked') || {}).value || det.level;
+                if (vp.querySelector('.mlx-quality__remember input').checked) {
+                    try {
+                        window.localStorage.setItem(QKEY, level);
+                    } catch (e) {
+                        // Navegación privada: no se recuerda, sin más efectos.
+                    }
+                }
+                self.quality = level;
+                vp.innerHTML = '<div class="mlx-boot"><div class="mlx-boot__spinner"></div><p>' + esc(t('scene_loading')) +
+                    '</p></div>';
+                resolve(level);
+            });
+        });
+    };
+
     App.prototype.toCoords = function(p) {
         const o = this.data.scene.origin || {E: 0, N: 0, Z: 0};
         return {E: o.E + p.x, N: o.N - p.z, Z: o.Z + p.y};
@@ -317,6 +405,9 @@ define([
         html += '</div><div class="mlx-tb-group">';
         html += '<button type="button" class="mlx-tb mlx-tb--icon" data-act="clear" title="' + esc(t('clear_measures')) + '">' +
             icon('clear') + '<span class="sr-only">' + esc(t('clear_measures')) + '</span></button>' +
+            '<button type="button" class="mlx-tb mlx-tb--icon" data-act="quality" title="' +
+            esc(t('quality_change') + ': ' + t('quality_' + this.quality)) + '">' + icon('quality') +
+            '<span class="sr-only">' + esc(t('quality_change')) + '</span></button>' +
             '<button type="button" class="mlx-tb mlx-tb--icon" data-act="fs" title="' + esc(t('fullscreen')) + '">' +
             icon('fs') + '<span class="sr-only">' + esc(t('fullscreen')) + '</span></button></div>';
         bar.innerHTML = html;
@@ -341,6 +432,15 @@ define([
                 this.setLayer(b.dataset.layer, on);
             } else if (b.dataset.act === 'clear') {
                 this.clearMeasures();
+            } else if (b.dataset.act === 'quality') {
+                // Olvidar la elección y recargar: el selector vuelve a aparecer (el avance ya está guardado).
+                try {
+                    window.localStorage.removeItem(QKEY);
+                } catch (e) {
+                    // Sin almacenamiento local: igual se mostrará el selector.
+                }
+                this.flushDraft(true);
+                window.setTimeout(() => window.location.reload(), 300);
             } else if (b.dataset.act === 'fs') {
                 const stage = this.root.querySelector('.mlx-shell');
                 if (!document.fullscreenElement) {

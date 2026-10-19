@@ -112,5 +112,21 @@ function xmldb_minaslab_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026101800, 'minaslab');
     }
 
+    if ($oldversion < 2026102000) {
+        // Se retiran las prácticas formativas antiguas: las instancias con claves que ya no
+        // existen pasan a la evaluación práctica de su semestre.
+        $map = ['s1' => 'ev_s1_operaciones', 's2' => 'ev_s2_geologia', 's3' => 'ev_s3_yacimientos',
+            's4' => 'ev_s4_rajo', 's5' => 'ev_s5_proyecto'];
+        $valid = array_keys(\mod_minaslab\local\evaluation\registry::all());
+        foreach ($DB->get_records('minaslab', null, '', 'id, activity_key') as $r) {
+            if (in_array($r->activity_key, $valid, true)) {
+                continue;
+            }
+            $prefix = substr((string) $r->activity_key, 0, 2);
+            $DB->set_field('minaslab', 'activity_key', $map[$prefix] ?? 'ev_s1_operaciones', ['id' => $r->id]);
+        }
+        upgrade_mod_savepoint(true, 2026102000, 'minaslab');
+    }
+
     return true;
 }

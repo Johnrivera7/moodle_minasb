@@ -3054,3 +3054,99 @@ body:not(.path-mod-minaslab) .minaslab-app {
     font-size: 0.78rem;
     letter-spacing: 0.02em;
 }
+
+/* Selector de calidad gráfica */
+.mlx-quality {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    padding: 2rem;
+    color: #e6ebf0;
+    background:
+        radial-gradient(900px 500px at 50% 0%, rgba(200, 112, 42, 0.25), transparent),
+        var(--mlx-stage);
+    text-align: center;
+}
+
+.mlx-quality h4 {
+    margin: 0;
+    font-size: 1.4rem;
+    color: #fff;
+}
+
+.mlx-quality__intro {
+    max-width: 640px;
+    margin: 0;
+    color: #c4ccd4;
+}
+
+.mlx-quality__opts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 220px));
+    gap: 0.8rem;
+}
+
+.mlx-quality__opt {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.06);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+}
+
+.mlx-quality__opt:has(input:checked) {
+    border-color: var(--mlx-copper-2);
+    background: rgba(227, 148, 72, 0.14);
+}
+
+.mlx-quality__opt input {
+    position: absolute;
+    opacity: 0;
+}
+
+.mlx-quality__opt:focus-within {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.mlx-quality__name {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #fff;
+}
+
+.mlx-quality__name em {
+    font-style: normal;
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: #ffd27f;
+}
+
+.mlx-quality__desc {
+    font-size: 0.82rem;
+    color: #c4ccd4;
+}
+
+.mlx-quality__gpu {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #98a3ad;
+}
+
+.mlx-quality__remember {
+    font-size: 0.85rem;
+}
+
+@media (max-width: 760px) {
+    .mlx-quality__opts {
+        grid-template-columns: 1fr;
+    }
+}

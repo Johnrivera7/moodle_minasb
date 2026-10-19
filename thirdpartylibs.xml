@@ -7,11 +7,4 @@
     <license>MIT</license>
     <licenseversion></licenseversion>
   </library>
-  <library>
-    <location>js/three.min.js</location>
-    <name>Three.js (UMD legacy fallback)</name>
-    <version>0.159.x</version>
-    <license>MIT</license>
-    <licenseversion></licenseversion>
-  </library>
 </libraries>

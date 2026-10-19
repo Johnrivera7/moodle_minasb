@@ -566,6 +566,17 @@ define(['mod_minaslab/eval_models'], function(models) {
         };
     };
 
+    /**
+     * Niveles de calidad gráfica elegidos por el usuario al abrir la actividad.
+     * terrain/detail/particles escalan malla del terreno, rocas y partículas.
+     */
+    const QUALITY = {
+        high: {level: 'high', antialias: true, pixelRatio: 2, shadow: 4096, terrain: 1, detail: 1, particles: 1, lights: 14},
+        medium: {level: 'medium', antialias: true, pixelRatio: 1.25, shadow: 2048, terrain: 0.6, detail: 0.6, particles: 0.6,
+            lights: 8},
+        low: {level: 'low', antialias: false, pixelRatio: 0.9, shadow: 0, terrain: 0.32, detail: 0.3, particles: 0.3, lights: 4}
+    };
+
     // ---------------------------------------------------------------------
     // Mundo: renderer, cámara, cielo, luces y controles.
     // ---------------------------------------------------------------------
@@ -592,13 +603,14 @@ define(['mod_minaslab/eval_models'], function(models) {
     const createWorld = function(host, THREE, opt) {
         opt = opt || {};
         const extent = opt.extent || 400;
-        const renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        const Q = QUALITY[opt.quality] || QUALITY.high;
+        const renderer = new THREE.WebGLRenderer({antialias: Q.antialias, powerPreference: 'high-performance'});
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, Q.pixelRatio));
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.0;
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.enabled = Q.shadow > 0;
+        renderer.shadowMap.type = Q.shadow >= 4096 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
         renderer.localClippingEnabled = true;
         renderer.domElement.className = 'mlx-canvas';
         host.appendChild(renderer.domElement);
@@ -643,9 +655,9 @@ define(['mod_minaslab/eval_models'], function(models) {
         scene.add(hemi);
         const sun = new THREE.DirectionalLight(0xfff0dc, 2.7);
         sun.position.copy(sunDir).multiplyScalar(extent * 2.2);
-        sun.castShadow = true;
+        sun.castShadow = Q.shadow > 0;
         const maxTex = renderer.capabilities.maxTextureSize || 4096;
-        sun.shadow.mapSize.set(Math.min(4096, maxTex), Math.min(4096, maxTex));
+        sun.shadow.mapSize.set(Math.min(Q.shadow || 512, maxTex), Math.min(Q.shadow || 512, maxTex));
         const sc = sun.shadow.camera;
         sc.left = -extent;
         sc.right = extent;
@@ -665,6 +677,7 @@ define(['mod_minaslab/eval_models'], function(models) {
         const labels = [];
 
         const world = {
+            quality: Q,
             THREE: THREE, renderer: renderer, scene: scene, camera: camera, host: host, sun: sun, hemi: hemi,
             sky: skyMat, envTexture: envTarget.texture, horizon: horizon,
             sunDir: sunDir, extent: extent, labels: labels, labelLayer: labelLayer,
@@ -1136,7 +1149,8 @@ define(['mod_minaslab/eval_models'], function(models) {
         // Terreno lejano (se hunde bajo las zonas de detalle para no interferir).
         const fh = cfg.farHole || patch;
         const farSize = cfg.farSize || 9000;
-        const farGeo = new THREE.PlaneGeometry(farSize, farSize, 220, 220);
+        const fseg = world.quality && world.quality.terrain < 0.5 ? 140 : 220;
+        const farGeo = new THREE.PlaneGeometry(farSize, farSize, fseg, fseg);
         farGeo.rotateX(-Math.PI / 2);
         const fpos = farGeo.attributes.position;
         const fcol = new Float32Array(fpos.count * 3);
@@ -1144,7 +1158,7 @@ define(['mod_minaslab/eval_models'], function(models) {
             const x = fpos.getX(i);
             const z = fpos.getZ(i);
             let y;
-            const m = farSize / 220 * 1.05;
+            const m = farSize / fseg * 1.05;
             const inside = x > fh.minX + m && x < fh.maxX - m && z > fh.minZ + m && z < fh.maxZ - m;
             if (inside) {
                 y = Math.min(natural(x, z), sampleAt(x, z).y) - 12;
@@ -1613,7 +1627,7 @@ define(['mod_minaslab/eval_models'], function(models) {
     };
 
     return {
-        clamp: clamp, lerp: lerp, smooth: smooth, mulberry: mulberry, makeNoise: makeNoise,
+        QUALITY: QUALITY, clamp: clamp, lerp: lerp, smooth: smooth, mulberry: mulberry, makeNoise: makeNoise,
         createWorld: createWorld, makePit: makePit, buildTerrain: buildTerrain, addSurveyLines: addSurveyLines,
         snapToSurvey: snapToSurvey, materials: materials, box: box, cyl: cyl, haulTruck: haulTruck,
         ropeShovel: ropeShovel, drillRig: drillRig, pickup: pickup, worker: worker, signPost: signPost,
