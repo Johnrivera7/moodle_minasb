@@ -26,8 +26,9 @@ define([
     'core/notification',
     'mod_minaslab/eval_three',
     'mod_minaslab/eval_kit',
-    'mod_minaslab/eval_scenes'
-], function(Ajax, Notification, Loader, kit, scenes) {
+    'mod_minaslab/eval_scenes',
+    'mod_minaslab/eval_fx'
+], function(Ajax, Notification, Loader, kit, scenes, effects) {
     'use strict';
 
     const ICONS = {
@@ -41,6 +42,9 @@ define([
         survey: '<path d="M3 7c4 3 14 3 18 0M3 12c4 3 14 3 18 0M3 17c4 3 14 3 18 0"/>',
         underground: '<path d="M3 9h18M6 9v10M12 9v12M18 9v8M3 5h18"/>',
         clear: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
+        night: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+        wind: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/>',
+        fog: '<path d="M4 9h16M2 13h20M5 17h14M8 5h8"/>',
         fs: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'
     };
     const icon = name => '<svg viewBox="0 0 24 24" aria-hidden="true" class="mlx-ico">' + ICONS[name] + '</svg>';
@@ -213,6 +217,7 @@ define([
             sunAz: sceneId === 's2' ? 118 : 300, sunEl: sceneId === 's2' ? 34 : 38});
         this.world = world;
         this.THREE = THREE;
+        world.fx = effects.create(world);
         this.sceneApi = scenes.build(world, sceneId, this.data.scene);
         this.layers = {survey: true};
         this.buildToolbar();
@@ -304,6 +309,12 @@ define([
                 '" title="' + esc(t('layer_' + l.id)) + '">' + icon(l.id) + '<span>' + esc(t('layer_' + l.id)) +
                 '</span></button>';
         });
+        html += '</div><div class="mlx-tb-group">';
+        ['night', 'wind', 'fog'].forEach(function(env) {
+            html += '<button type="button" class="mlx-tb mlx-tb--icon" data-env="' + env + '" aria-pressed="false" title="' +
+                esc(t('env_' + env)) + '">' + icon(env) + '<span class="sr-only">' + esc(t('env_' + env)) + '</span></button>';
+        });
+        html += '</div><div class="mlx-tb-group">';
         html += '<button type="button" class="mlx-tb mlx-tb--icon" data-act="clear" title="' + esc(t('clear_measures')) + '">' +
             icon('clear') + '<span class="sr-only">' + esc(t('clear_measures')) + '</span></button>' +
             '<button type="button" class="mlx-tb mlx-tb--icon" data-act="fs" title="' + esc(t('fullscreen')) + '">' +
@@ -318,6 +329,12 @@ define([
                 this.setTool(b.dataset.tool);
             } else if (b.dataset.view) {
                 this.world.focusOn(b.dataset.view);
+            } else if (b.dataset.env) {
+                const on = b.getAttribute('aria-pressed') !== 'true';
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+                if (this.world.fx) {
+                    this.world.fx.set(b.dataset.env, on);
+                }
             } else if (b.dataset.layer) {
                 const on = b.getAttribute('aria-pressed') !== 'true';
                 b.setAttribute('aria-pressed', on ? 'true' : 'false');

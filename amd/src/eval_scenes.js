@@ -24,7 +24,7 @@
  * @copyright  2026 John Rivera González
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-define(['mod_minaslab/eval_kit'], function(kit) {
+define(['mod_minaslab/eval_kit', 'mod_minaslab/eval_models'], function(kit, models) {
     'use strict';
 
     const fmt = function(v, d) {
@@ -70,6 +70,10 @@ define(['mod_minaslab/eval_kit'], function(kit) {
             slope: opt.slope, colors: opt.colors, collar: 0, farHole: opt.farHole
         });
         kit.addSurveyLines(world, pit, terrain);
+        if (world.fx) {
+            world.fx.area = {minX: b.minX - 60, maxX: b.maxX + 60, minZ: b.minZ - 60, maxZ: b.maxZ + 60,
+                heightAt: terrain.heightAt};
+        }
         if (pit.path.length) {
             const half = data.pit.rampWidth / 2;
             const pts = [];
@@ -91,14 +95,98 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         return {pit: pit, terrain: terrain, M: M};
     };
 
+    const place = function(world, obj, x, z, terrain, rotY, dy) {
+        obj.position.set(x, terrain.heightAt(x, z) + (dy || 0), z);
+        obj.rotation.y = rotY || 0;
+        world.scene.add(obj);
+        return obj;
+    };
+
     /**
-     * Camión que recorre la rampa (baja vacío, sube cargado).
+     * Vehículo que recorre la rampa de ida y vuelta, con esperas en los extremos.
+     *
+     * @param {Object} world
+     * @param {Object} pit
+     * @param {Object} grp modelo (frente +x)
+     * @param {number} phase fase inicial 0–1
+     * @param {Object} opt {up, down (m/s), waitTop, waitBottom, onTop(f), onBottom(f), onMove(goingUp)}
+     */
+    const rampVehicle = function(world, pit, grp, phase, opt) {
+        const n = pit.path.length;
+        const lane = pit.params.rampWidth / 4;
+        let t = phase * 2 * n;
+        let wait = 0;
+        let waitKind = null;
+        world.updaters.push(function(dt) {
+            if (n < 3) {
+                return;
+            }
+            if (wait > 0) {
+                wait -= dt;
+                const total = waitKind === 'top' ? opt.waitTop : opt.waitBottom;
+                const f = 1 - Math.max(0, wait) / total;
+                if (waitKind === 'top' && opt.onTop) {
+                    opt.onTop(f);
+                } else if (waitKind === 'bottom' && opt.onBottom) {
+                    opt.onBottom(f);
+                }
+                return;
+            }
+            const before = t;
+            const goingUp = t >= n;
+            t = t + dt * (goingUp ? opt.up : opt.down);
+            // Llegada al fondo (fin de bajada) y a la cresta (fin de subida).
+            if (before < n && t >= n && opt.waitBottom) {
+                t = n;
+                wait = opt.waitBottom;
+                waitKind = 'bottom';
+            } else if (t >= 2 * n) {
+                t = 0;
+                if (opt.waitTop) {
+                    wait = opt.waitTop;
+                    waitKind = 'top';
+                }
+            }
+            const up = t >= n;
+            const l = up ? 2 * n - t : t;
+            const i = kit.clamp(Math.floor(l), 1, n - 2);
+            const p = pit.path[i];
+            const off = up ? lane : -lane;
+            const nb = pit.path[up ? i - 1 : i + 1];
+            const a = pit.ringPoint(p.q, p.r + off);
+            const c = pit.ringPoint(nb.q, nb.r + off);
+            kit.placeAlong(grp, {x: a.x, y: p.y, z: a.z}, {x: c.x, y: nb.y, z: c.z});
+            if (opt.onMove) {
+                opt.onMove(up);
+            }
+        });
+    };
+
+    /**
+     * Registra polvo y focos de un vehículo en los efectos del mundo.
+     *
+     * @param {Object} world
+     * @param {Object} grp
+     * @param {Object} d {rear, width, size, front, lightY}
+     */
+    const vehicleFx = function(world, grp, d) {
+        if (!world.fx) {
+            return;
+        }
+        world.fx.addDustEmitter(grp, {rear: d.rear, width: d.width, size: d.size});
+        world.fx.addNightLight(grp, {pos: [d.front, d.lightY, 0], dir: [30, -6, 0], kind: 'vehicle', range: d.range});
+    };
+
+    /**
+     * Camión que recorre la rampa: baja vacío, espera el carguío en el fondo, sube
+     * cargado y levanta la tolva al descargar en la cresta.
      *
      * @param {Object} world
      * @param {Object} pit
      * @param {number} payload
      * @param {number} phase
-     * @param {Object} info
+     * @param {Object} info ficha de inspección
+     * @returns {Object}
      */
     const rampTruck = function(world, pit, payload, phase, info) {
         const THREE = world.THREE;
@@ -108,35 +196,180 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         if (info) {
             world.addPickable(grp, info);
         }
-        const n = pit.path.length;
-        const lane = pit.params.rampWidth / 4;
-        let t = phase * 2 * n;
-        world.updaters.push(function(dt) {
-            if (n < 3) {
-                return;
-            }
-            const goingUp = t >= n;
-            t = (t + dt * (goingUp ? 4.2 : 7.5)) % (2 * n);
-            const l = goingUp ? 2 * n - t : t;
-            const i = kit.clamp(Math.floor(l), 1, n - 2);
-            const p = pit.path[i];
-            const off = goingUp ? lane : -lane;
-            const nb = pit.path[goingUp ? i - 1 : i + 1];
-            const a = pit.ringPoint(p.q, p.r + off);
-            const c = pit.ringPoint(nb.q, nb.r + off);
-            kit.placeAlong(grp, {x: a.x, y: p.y, z: a.z}, {x: c.x, y: nb.y, z: c.z});
-            if (grp.userData.load) {
-                grp.userData.load.visible = goingUp;
+        const load = models.part(grp, 'load');
+        rampVehicle(world, pit, grp, phase, {
+            up: 4.2, down: 7.5, waitTop: 13, waitBottom: 9,
+            onTop: function(f) {
+                // Volteo: sube 0–35 %, mantiene 35–60 % (la carga cae), baja 60–100 %.
+                const a = f < 0.35 ? f / 0.35 : (f < 0.6 ? 1 : 1 - (f - 0.6) / 0.4);
+                models.setDump(THREE, grp, 0.82 * a * a * (3 - 2 * a));
+                if (load) {
+                    load.visible = f < 0.45;
+                }
+                if (world.fx && f > 0.35 && f < 0.6 && Math.random() < 0.6) {
+                    const p = grp.localToWorld(new THREE.Vector3(-9, 1, (Math.random() - 0.5) * 6));
+                    world.fx.dust.emit(p.x, p.y, p.z, -2, 1.5, 0, 6, 4);
+                }
+            },
+            onBottom: function(f) {
+                if (load) {
+                    load.visible = f > 0.6;
+                }
+            },
+            onMove: function(up) {
+                if (load) {
+                    load.visible = up;
+                }
             }
         });
+        vehicleFx(world, grp, {rear: -6, width: 6.5, size: 3.6, front: 6.2, lightY: 2.0});
         return grp;
     };
 
-    const place = function(world, obj, x, z, terrain, rotY, dy) {
-        obj.position.set(x, terrain.heightAt(x, z) + (dy || 0), z);
-        obj.rotation.y = rotY || 0;
-        world.scene.add(obj);
-        return obj;
+    /**
+     * Camión aljibe regando la rampa (velocidad baja de riego).
+     *
+     * @param {Object} world
+     * @param {Object} pit
+     * @param {number} phase
+     * @returns {Object}
+     */
+    const rampWater = function(world, pit, phase) {
+        const THREE = world.THREE;
+        const grp = models.waterTruck(THREE, 'AL-0' + (2 + Math.round(phase * 5)));
+        world.scene.add(grp);
+        world.addPickable(grp, {id: 'water', title: 'Camión aljibe — riego de caminos',
+            rows: [['Capacidad del estanque', '90.000 L'], ['Tasa de riego', '1,2 L/m²'],
+                ['Objetivo', 'Control de polvo en suspensión (calidad del aire)']]});
+        rampVehicle(world, pit, grp, phase, {up: 3.2, down: 3.6});
+        if (world.fx) {
+            world.fx.addSprayer(grp, grp.userData.spray);
+        }
+        vehicleFx(world, grp, {rear: -6, width: 6, size: 2.6, front: 6.2, lightY: 2.0});
+        return grp;
+    };
+
+    /**
+     * Ida y vuelta en línea recta (motoniveladora, bulldozer empujando).
+     *
+     * @param {Object} world
+     * @param {Object} obj
+     * @param {Object} a {x, z}
+     * @param {Object} b {x, z}
+     * @param {Object} terrain
+     * @param {Object} opt {speed, reverse: retrocede sin girar, onStep(f, forward)}
+     */
+    const shuttle = function(world, obj, a, b, terrain, opt) {
+        const len = Math.hypot(b.x - a.x, b.z - a.z);
+        let s = 0;
+        let dir = 1;
+        const yaw = Math.atan2(-(b.z - a.z), b.x - a.x);
+        world.updaters.push(function(dt) {
+            s += dir * dt * (opt.speed || 2) * (dir < 0 && opt.reverse ? 1.6 : 1);
+            if (s > len) {
+                s = len;
+                dir = -1;
+            } else if (s < 0) {
+                s = 0;
+                dir = 1;
+            }
+            const f = s / len;
+            const x = a.x + (b.x - a.x) * f;
+            const z = a.z + (b.z - a.z) * f;
+            obj.position.set(x, terrain.heightAt(x, z), z);
+            obj.rotation.set(0, opt.reverse || dir > 0 ? yaw : yaw + Math.PI, 0);
+            if (opt.onStep) {
+                opt.onStep(f, dir > 0);
+            }
+        });
+    };
+
+    /**
+     * Ciclo de carguío del cargador frontal en «V»: entra a la pila, carga,
+     * retrocede girando, avanza al camión con los brazos arriba, vacía y vuelve.
+     *
+     * @param {Object} world
+     * @param {Object} loader
+     * @param {Object} pile punto de la pila {x, z}
+     * @param {Object} truck punto junto al camión {x, z}
+     * @param {Object} back punto de retroceso {x, z}
+     * @param {Object} terrain
+     */
+    const loaderCycle = function(world, loader, pile, truck, back, terrain) {
+        const T = 30;
+        const ease = x => x * x * (3 - 2 * x);
+        const lerpP = (p, q, f) => ({x: p.x + (q.x - p.x) * f, z: p.z + (q.z - p.z) * f});
+        world.updaters.push(function(dt, time) {
+            const p = (time % T) / T;
+            let pos;
+            let face;
+            let lift = 0;
+            let tilt = 0.1;
+            let loaded = false;
+            if (p < 0.22) {
+                pos = lerpP(back, pile, ease(p / 0.22));
+                face = pile;
+            } else if (p < 0.32) {
+                pos = pile;
+                face = pile;
+                tilt = 0.1 + 0.45 * ease((p - 0.22) / 0.1);
+                loaded = p > 0.27;
+            } else if (p < 0.5) {
+                pos = lerpP(pile, back, ease((p - 0.32) / 0.18));
+                face = pile;
+                tilt = 0.55;
+                lift = 0.15;
+                loaded = true;
+            } else if (p < 0.68) {
+                const f = ease((p - 0.5) / 0.18);
+                pos = lerpP(back, truck, f);
+                face = truck;
+                lift = 0.15 + 0.7 * f;
+                tilt = 0.55;
+                loaded = true;
+            } else if (p < 0.8) {
+                const f = ease((p - 0.68) / 0.12);
+                pos = truck;
+                face = truck;
+                lift = 0.85;
+                tilt = 0.55 - 1.35 * f;
+                loaded = f < 0.5;
+            } else {
+                const f = ease((p - 0.8) / 0.2);
+                pos = lerpP(truck, back, f);
+                face = truck;
+                lift = 0.85 * (1 - f);
+                tilt = -0.8 + 0.9 * f;
+            }
+            loader.position.set(pos.x, terrain.heightAt(pos.x, pos.z), pos.z);
+            // Siempre mira hacia el destino de la fase (retrocede sin girar).
+            const tx = face.x - pos.x;
+            const tz = face.z - pos.z;
+            if (Math.hypot(tx, tz) > 0.5) {
+                loader.rotation.y = Math.atan2(-tz, tx);
+            }
+            models.setLoaderPose(loader, lift, tilt, loaded);
+        });
+    };
+
+    /**
+     * Torre de iluminación con su luz nocturna.
+     *
+     * @param {Object} world
+     * @param {Object} terrain
+     * @param {number} x
+     * @param {number} z
+     * @param {number} yaw orientación de los focos (rad)
+     * @returns {Object}
+     */
+    const tower = function(world, terrain, x, z, yaw) {
+        const THREE = world.THREE;
+        const t = place(world, models.lightTower(THREE), x, z, terrain, yaw);
+        if (world.fx) {
+            const l = t.userData.lamp;
+            world.fx.addNightLight(t, {pos: [l[0] + 0.3, l[1], l[2]], dir: [20, -9, 0], kind: 'tower'});
+        }
+        return t;
     };
 
     /**
@@ -264,7 +497,6 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         world.addPickable(truck, truckInfo);
         world.addFocus('truck', truck.position, 38, 0.9, 0.45);
         rampTruck(world, pit, data.truck.payload, 0.2, truckInfo);
-        kit.dust(world, shovel.position, 14, 40);
 
         // Hitos topográficos A y B en la rampa.
         const mk = data.pit.rampMarkers;
@@ -345,6 +577,22 @@ define(['mod_minaslab/eval_kit'], function(kit) {
                 pickId: pt.id};
             world.addLabel({x: p.x, y: p.y + 1.2, z: p.z}, pin(String(pt.n), 'mlx-pin--insp'), '', info);
         });
+
+        // Equipos de apoyo: motoniveladora, aljibe, torres de iluminación, LHD y jumbo en el portal.
+        const grader = place(world, models.motorGrader(THREE), -50, 34, terrain, 0);
+        shuttle(world, grader, {x: -62, z: 34}, {x: -5, z: 34}, terrain, {speed: 2.2});
+        vehicleFx(world, grader, {rear: -5, width: 2.8, size: 2.2, front: 4.5, lightY: 2.0});
+        rampWater(world, pit, 0.62);
+        tower(world, terrain, bx - blk.length / 2 - 10, bz - 20, -0.4);
+        tower(world, terrain, bx + blk.length / 2 + 8, bz - 26, Math.PI + 0.5);
+        const lhdM = place(world, models.lhd(THREE), tip.x - 20, tip.z + 9, terrain, 0.1);
+        const jumboM = place(world, models.jumbo(THREE), tip.x - 22, tip.z - 9, terrain, -0.1);
+        world.addPickable(lhdM, {id: 'lhd', title: 'Cargador LHD (scoop) de bajo perfil',
+            rows: [['Capacidad del balde', '7 m³ (14 t)'], ['Uso', 'Carguío en galerías subterráneas']]});
+        world.addPickable(jumboM, {id: 'jumbo', title: 'Jumbo de perforación de dos brazos',
+            rows: [['Brazos', '2 con viga de avance'], ['Uso', 'Perforación de frentes de desarrollo']]});
+        models.setLoaderPose(shovel, 0, 0.1, false);
+        place(world, models.pickup(THREE, 'CAM-14', 'hx'), entry.x + 26, entry.z - 30, terrain, 0.9);
 
         // Señalética general de la faena.
         const sg = kit.signPost(THREE, M, ['FAENA ESCUELA', 'USO OBLIGATORIO DE EPP'], {bg: '#0d47a1', fg: '#fff',
@@ -488,7 +736,7 @@ define(['mod_minaslab/eval_kit'], function(kit) {
 
         const drill = place(world, kit.drillRig(THREE, M), 40, pit.bermPoint(pit.n - 1, 40).z + 30, terrain, 0.2);
         drill.scale.setScalar(0.9);
-        place(world, kit.pickup(THREE, M), stPos.x + 18, stPos.z - 8, terrain, 0.4);
+        place(world, kit.pickup(THREE, M, 'GEO-02', 'lx'), stPos.x + 18, stPos.z - 8, terrain, 0.4);
 
         const wp = pit.wallPoint(1, 0, 0.5);
         world.addFocus('wall', {x: 0, y: wp.y, z: wp.z + 6}, 70, 0.0, 0.2);
@@ -675,7 +923,7 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         world.addPickable(board, pinfo);
         world.addLabel({x: bp.x, y: bp.y + 5, z: bp.z}, tag('Banco piloto'), '', pinfo);
         world.addFocus('pattern', {x: bp.x, y: bp.y, z: bp.z}, 70, 0.35, 0.9);
-        place(world, kit.pickup(THREE, M), bp.x + bp.w / 2 + 6, bp.z, terrain, 1.2);
+        place(world, kit.pickup(THREE, M, 'TRO-04', 'tx'), bp.x + bp.w / 2 + 6, bp.z, terrain, 1.2);
         place(world, kit.drillRig(THREE, M), bp.x - 10, bp.z + bp.d / 2 - 6, terrain, 0.1);
 
         // Galpón de testigos y camionetas.
@@ -687,7 +935,7 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         roof.position.y = 5.2;
         shed.add(roof);
         place(world, shed, -200, 150, terrain, 0.2);
-        place(world, kit.pickup(THREE, M), -185, 140, terrain, 2.1);
+        place(world, kit.pickup(THREE, M, 'GEO-09', 'hx'), -185, 140, terrain, 2.1);
 
         underground.forEach(o => {
             o.visible = false;
@@ -748,7 +996,21 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         place(world, lt, sx + 18, -fr * 0.35 + 18, terrain, Math.PI / 2);
         world.addPickable(lt, truckInfo);
         world.addFocus('truck', lt.position, 45, 0.7, 0.4);
-        kit.dust(world, shovel.position, 20, 50);
+        // Ciclo de la pala: excava en el frente y gira hacia el camión en carguío.
+        shovel.updateMatrixWorld(true);
+        const tl = shovel.worldToLocal(lt.position.clone());
+        const swing = Math.atan2(-tl.z, tl.x);
+        world.updaters.push((dt, time) => models.animateShovel(THREE, shovel, time, swing));
+        if (world.fx) {
+            world.fx.addNightLight(shovel, {pos: [4, 11, 0], dir: [25, -10, 0], kind: 'tower', range: 120});
+        }
+        rampWater(world, pit, 0.5);
+        const gr = place(world, models.motorGrader(THREE), 0, fr * 0.55, terrain, 0);
+        shuttle(world, gr, {x: -pit.L * 0.6, z: fr * 0.55}, {x: pit.L * 0.6, z: fr * 0.55}, terrain, {speed: 2.4});
+        vehicleFx(world, gr, {rear: -5, width: 2.8, size: 2.2, front: 4.5, lightY: 2.0});
+        tower(world, terrain, sx - 30, -fr * 0.5, -0.3);
+        tower(world, terrain, pit.L * 0.3, -fr * 0.45, Math.PI + 0.4);
+        tower(world, terrain, -pit.L * 0.15, fr * 0.65, -Math.PI / 2);
 
         // Bloques del banco activo.
         const bw = 26;
@@ -784,6 +1046,8 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         world.addPickable(trailer, dinfo);
         world.addLabel({x: dpos.x, y: trailer.position.y + 10, z: dpos.z}, tag('Despacho'), '', dinfo);
         world.addFocus('dispatch', trailer.position, 45, 0.9, 0.35);
+        place(world, kit.pickup(THREE, null, 'SUP-01', 'tx'), dpos.x + 9, dpos.z + 8, terrain, 0.25);
+        place(world, kit.pickup(THREE, null, 'CAM-12', 'hx'), dpos.x + 15, dpos.z + 7, terrain, 0.2);
 
         // Portal de la rampa de exploración subterránea (pared poniente).
         const sToe = (pit.n - 1) * pit.period + pit.face;
@@ -799,6 +1063,12 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         world.addPickable(pg, pinfo2);
         world.addLabel({x: pw.x, y: floorY + 10, z: pw.z}, tag('Rampa subterránea'), '', pinfo2);
         world.addFocus('portal', {x: pw.x, y: floorY + 4, z: pw.z}, 40, Math.PI / 2 - 0.3, 0.2);
+        const lhd4 = place(world, models.lhd(THREE), pw.x + 22, pw.z + 8, terrain, Math.PI + 0.1);
+        const jum4 = place(world, models.jumbo(THREE), pw.x + 24, pw.z - 9, terrain, Math.PI - 0.1);
+        world.addPickable(lhd4, {id: 'lhd', title: 'Cargador LHD (scoop) de bajo perfil',
+            rows: [['Potencia', '275 HP (diésel)'], ['Capacidad', '14 t']]});
+        world.addPickable(jum4, {id: 'jumbo', title: 'Jumbo de perforación de dos brazos',
+            rows: [['Potencia', '120 HP (diésel)'], ['Uso', 'Desarrollo de la rampa de exploración']]});
         const duct = kit.cyl(THREE, 0.7, 0.7, 30, new THREE.MeshStandardMaterial({color: 0xffc400, roughness: 0.7}), 16);
         duct.rotation.z = Math.PI / 2;
         duct.position.set(pw.x + 16, floorY + 5.6, pw.z + 2.6);
@@ -812,6 +1082,10 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         dump.receiveShadow = true;
         world.scene.add(dump);
         world.addLabel({x: dump.position.x, y: dump.position.y + 30, z: dump.position.z}, tag('Botadero de lastre'));
+        const dz4 = place(world, models.bulldozer(THREE), dump.position.x - 250, -80, terrain, 0);
+        shuttle(world, dz4, {x: dump.position.x - 258, z: -80}, {x: dump.position.x - 236, z: -80}, terrain,
+            {speed: 1.6, reverse: true});
+        vehicleFx(world, dz4, {rear: -3, width: 3, size: 2.8, front: 4.6, lightY: 4.2});
         const crusher = kit.box(THREE, 24, 18, 18, M.concrete);
         crusher.position.set(-pit.L - pit.R - 120, terrain.heightAt(-pit.L - pit.R - 120, 60) + 9, 60);
         world.scene.add(crusher);
@@ -1036,6 +1310,11 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         dump.receiveShadow = true;
         world.scene.add(dump);
         world.addLabel({x: 560, y: dump.position.y + 26, z: -380}, tag('Botadero'));
+        const dz5 = place(world, models.bulldozer(THREE), 390, -380, tr, 0);
+        shuttle(world, dz5, {x: 382, z: -380}, {x: 402, z: -380}, tr, {speed: 1.6, reverse: true});
+        vehicleFx(world, dz5, {rear: -3, width: 3, size: 2.8, front: 4.6, lightY: 4.2});
+        rampWater(world, pit, 0.6);
+        place(world, models.pickup(THREE, 'CAM-05', 'lx'), -pit.L - 20, -pit.R - 32, tr, 0.6);
 
         world.addFocus('iso', {x: -150, y: 0, z: 300}, 1700, 0.55, 0.55);
         world.addFocus('plan', {x: -150, y: 0, z: 250}, 2200, 0.0, 1.5);
@@ -1114,7 +1393,8 @@ define(['mod_minaslab/eval_kit'], function(kit) {
             -Math.PI / 2 + 0.25);
         world.addPickable(lt, truckInfo);
         world.addFocus('truck', lt.position, 34, 1.1, 0.35);
-        kit.dust(world, loader.position, 12, 40);
+        loaderCycle(world, loader, {x: 45, z: 0}, {x: 30, z: 7.5}, {x: 22, z: -3}, terrain);
+        vehicleFx(world, loader, {rear: -5, width: 3, size: 2.4, front: 3, lightY: 5.6});
         stage({x: 32, y: floorY + 13, z: 6}, 'Carguío', loaderInfo);
 
         // Fila de camiones con su carga (T1–T6) para decidir el destino.
@@ -1135,6 +1415,12 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         }
         const mid = pit.rampAt(Math.floor(pit.path.length * 0.45));
         stage({x: mid.x, y: mid.y + 12, z: mid.z}, 'Transporte');
+        rampWater(world, pit, 0.55);
+        const gr = place(world, models.motorGrader(THREE), -70, 28, terrain, 0);
+        shuttle(world, gr, {x: -80, z: 30}, {x: -20, z: 30}, terrain, {speed: 2.2});
+        vehicleFx(world, gr, {rear: -5, width: 2.8, size: 2.2, front: 4.5, lightY: 2.0});
+        tower(world, terrain, -20, 22, -2.2);
+        tower(world, terrain, 70, -20, 2.4);
 
         // Descarga: chancador primario en el borde (inicio de la rampa) y botadero.
         const start = pit.rampAt(0);
@@ -1158,11 +1444,15 @@ define(['mod_minaslab/eval_kit'], function(kit) {
         dump.receiveShadow = true;
         world.scene.add(dump);
         stage({x: dx, y: dump.position.y + 18, z: 40}, 'Botadero');
+        const dz = place(world, models.bulldozer(THREE), dx - 110, 40, terrain, 0);
+        shuttle(world, dz, {x: dx - 118, z: 40}, {x: dx - 100, z: 40}, terrain, {speed: 1.6, reverse: true});
+        vehicleFx(world, dz, {rear: -3, width: 3, size: 2.8, front: 4.6, lightY: 4.2});
 
         // Despacho mina.
         const dpos = {x: start.x + 40, z: start.z - 30};
         const trailer = place(world, kit.siteOffice(THREE, 'DESPACHO MINA'), dpos.x, dpos.z, terrain, 0.2);
-        place(world, kit.pickup(THREE, null, 'SUP-03'), dpos.x - 10, dpos.z + 7, terrain, 0.3);
+        place(world, kit.pickup(THREE, null, 'SUP-03', 'lx'), dpos.x - 10, dpos.z + 7, terrain, 0.3);
+        place(world, kit.pickup(THREE, null, 'CAM-21', 'tx'), dpos.x - 4, dpos.z + 9, terrain, 0.35);
         const dc = data.dispatch;
         const dinfo = {id: 'dispatch', title: 'Despacho mina — ciclo promedio del turno',
             rows: [['Tiempo de carga', fmt(dc.carga, 1) + ' min'], ['Distancia frente → chancador', fmt(dc.distancia, 1) + ' km'],

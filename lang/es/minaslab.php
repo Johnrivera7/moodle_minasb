@@ -324,3 +324,6 @@ $string['evui_savefailed'] = 'No se pudo guardar; se reintentará automáticamen
 $string['evui_core_aria'] = 'Esquema de los trozos de testigo en la caja';
 $string['evui_core_legend'] = 'Gris oscuro: trozos ≥ 10 cm · claro: fragmentos < 10 cm. Números: longitud en cm.';
 $string['evui_qaqc_aria'] = 'Carta de control del estándar certificado';
+$string['evui_env_night'] = 'Turno de noche (focos y torres de iluminación)';
+$string['evui_env_wind'] = 'Viento con polvo en suspensión';
+$string['evui_env_fog'] = 'Neblina costera (camanchaca)';

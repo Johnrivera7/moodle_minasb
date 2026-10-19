@@ -75,6 +75,8 @@ En la sección *Evaluación práctica semestral* del formulario se definen:
   - `eval_three`: carga Three.js r160 como módulo ES.
   - `eval_kit`: motor de render con cielo procedural, iluminación PMREM, sombras suaves y tono ACES. Genera un terreno con rajo de bancos exactos y rampa tallada, más equipos mineros y herramientas.
   - `eval_models`: equipos detallados a escala real: camión de extracción, pala de cables, perforadora con mástil reticulado, cargador frontal, sonda diamantina, camioneta, trabajador con EPP y estación total. Usan formas biseladas y extruidas, neumáticos torneados con banda en chevrón, cilindros hidráulicos, barandas y polvo de faena procedural. Las marcas que aparecen (MINEXA, ROCATRAX, KAIRO, SONDAX y Minera Cerro Aconcagua) son ficticias, para no usar marcas registradas sin autorización; se cambian en la constante `BRAND` de `eval_models.js`. Cada equipo se fusiona en una malla por material (≈ 10–17 llamadas de dibujo y 12–32 mil triángulos por máquina).
+  - `eval_fx`: efectos de faena. Incluye polvo dinámico tras los vehículos (menor sobre camino regado), riego del aljibe con huella húmeda que se seca, viento con polvo en suspensión, neblina costera y turno de noche con focos de los equipos y torres de iluminación.
+  - Animaciones del ciclo real: pala excavando, girando y vaciando el balde; cargador frontal en ciclo en «V»; camiones esperando el carguío y levantando la tolva al descargar; motoniveladora y bulldozer trabajando.
   - `eval_scenes`: las 5 escenas.
   - `eval_app`: interfaz, tareas, libreta de campo y autoguardado.
 - **Respaldo y restauración** incluyen el estado y las respuestas. La semilla del caso se conserva al restaurar.

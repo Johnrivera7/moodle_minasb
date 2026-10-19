@@ -324,3 +324,6 @@ $string['evui_savefailed'] = 'Could not save; it will retry automatically.';
 $string['evui_core_aria'] = 'Diagram of core pieces in the tray';
 $string['evui_core_legend'] = 'Dark: pieces ≥ 10 cm · light: fragments < 10 cm. Numbers: length in cm.';
 $string['evui_qaqc_aria'] = 'Certified standard control chart';
+$string['evui_env_night'] = 'Night shift (headlights and lighting towers)';
+$string['evui_env_wind'] = 'Wind with airborne dust';
+$string['evui_env_fog'] = 'Coastal fog';
