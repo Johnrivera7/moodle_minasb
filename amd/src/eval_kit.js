@@ -665,7 +665,8 @@ define(['mod_minaslab/eval_models'], function(models) {
         const labels = [];
 
         const world = {
-            THREE: THREE, renderer: renderer, scene: scene, camera: camera, host: host, sun: sun,
+            THREE: THREE, renderer: renderer, scene: scene, camera: camera, host: host, sun: sun, hemi: hemi,
+            sky: skyMat, envTexture: envTarget.texture, horizon: horizon,
             sunDir: sunDir, extent: extent, labels: labels, labelLayer: labelLayer,
             pickables: [], grounds: [], planes: [], updaters: [], focus: {}, surveyLines: [],
             listeners: {}, clipPlanes: [], disposed: false
@@ -1356,9 +1357,10 @@ define(['mod_minaslab/eval_models'], function(models) {
      * @param {Object} THREE
      * @param {Object} M materiales (no se usa; compatibilidad)
      * @param {string} number número interno
+     * @param {string} variant hx | lx | tx
      * @returns {Object}
      */
-    const pickup = (THREE, M, number) => models.pickup(THREE, number);
+    const pickup = (THREE, M, number, variant) => models.pickup(THREE, number, variant);
 
     /**
      * Trabajador con EPP.

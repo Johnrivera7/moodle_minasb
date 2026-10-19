@@ -478,11 +478,24 @@ define([], function() {
         const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
         const buckets = new Map();
         const kept = [];
+        const parts = [];
         const m4 = new THREE.Matrix4();
-        root.traverse(function(o) {
-            if (!o.isMesh) {
-                return;
-            }
+        const meshes = [];
+        // Recorrido propio: las partes móviles (userData.part) se hornean por separado.
+        const walk = function(o) {
+            o.children.forEach(function(c) {
+                if (c.userData.part) {
+                    parts.push(c);
+                    return;
+                }
+                if (c.isMesh) {
+                    meshes.push(c);
+                }
+                walk(c);
+            });
+        };
+        walk(root);
+        meshes.forEach(function(o) {
             if (o.userData.keep) {
                 kept.push(o);
                 return;
@@ -536,8 +549,41 @@ define([], function() {
             m4.decompose(o.position, o.quaternion, o.scale);
             out.add(o);
         });
+        // Partes móviles: horneadas en su propio sistema (pivote) y reubicadas.
+        parts.forEach(function(p) {
+            const rel = new THREE.Matrix4().multiplyMatrices(inv, p.matrixWorld);
+            const bp = bake(THREE, p);
+            rel.decompose(bp.position, bp.quaternion, bp.scale);
+            bp.name = 'mlx:' + p.userData.part;
+            out.add(bp);
+        });
         out.userData = Object.assign({}, root.userData);
+        delete out.userData.part;
         return out;
+    };
+
+    /**
+     * Parte móvil horneada por nombre (funciona también en copias con clone()).
+     *
+     * @param {Object} obj modelo
+     * @param {string} name nombre de la parte
+     * @returns {Object|null}
+     */
+    const part = (obj, name) => obj.getObjectByName('mlx:' + name) || null;
+
+    /**
+     * Grupo pivote para una parte móvil.
+     *
+     * @param {Object} THREE
+     * @param {string} name
+     * @param {number[]} pos pivote [x, y, z] en el sistema del padre
+     * @returns {Object}
+     */
+    const pivot = function(THREE, name, pos) {
+        const p = new THREE.Group();
+        p.position.set(pos[0], pos[1], pos[2]);
+        p.userData.part = name;
+        return p;
     };
 
     // ---------------------------------------------------------------------
@@ -995,11 +1041,17 @@ define([], function() {
             rb(g, THREE, M.steel, [0.5, BY - 2.45, 0.4], [-4.3, (BY + 2.45) / 2, sd * 0.85], 0.06);
             rb(g, THREE, M.black, [0.6, 0.25, 0.5], [1.6, BY - 0.12, sd * 0.85], 0.05);
             rb(g, THREE, M.yellow, [0.5, BY - 2.6, 0.45], [1.6, (BY + 2.25) / 2 - 0.15, sd * 0.85], 0.06);
-            hydraulic(g, THREE, M, [0.9, 2.3, sd * 1.35], [-0.6, BY + 0.05, sd * 1.5], 0.24);
+            // Cilindro de levante como parte móvil: se orienta y estira según el ángulo de la tolva.
+            const hb = new THREE.Vector3(0.9, 2.3, sd * 1.35);
+            const hl = new THREE.Vector3(-0.6, BY + 0.05, sd * 1.5).distanceTo(hb);
+            const hpv = pivot(THREE, 'hoist' + sd, [hb.x, hb.y, hb.z]);
+            hydraulic(hpv, THREE, M, [0, 0, 0], [0, hl, 0], 0.24);
+            g.add(hpv);
         });
         // Rotulación: número de flota, marca y modelo; luces y franjas reflectantes.
         const num = number || ('C-' + Math.round(100 + payload / 3));
         const model = 'HT ' + Math.round(payload);
+        const bodyDecals = [];
         [-1, 1].forEach(function(sd) {
             const d = decal(THREE, num, 1.9, 0.7, '#151515');
             d.position.set(-1.3, BY + 1.55, sd * (BW / 2 + 0.25));
@@ -1013,6 +1065,7 @@ define([], function() {
                 }
                 g.add(o);
             });
+            bodyDecals.push(d, br);
             rb(g, THREE, M.taillight, [0.08, 0.25, 0.4], [-4.85, 2.1, sd * 0.85], 0.03);
             rb(g, THREE, M.amber, [0.08, 0.2, 0.25], [-4.85, 2.45, sd * 0.85], 0.03);
             // Guardabarros traseros y expulsores de roca entre duales.
@@ -1053,19 +1106,136 @@ define([], function() {
         heapGeo.computeVertexNormals();
         const heap = mesh(THREE, heapGeo, M.rock, -2.4, BY + 0.9, 0);
         heap.userData.keep = true;
+        heap.name = 'mlx:load';
         g.add(heap);
 
+        // Tolva (con su carga, rotulación lateral y franjas) como parte móvil con bisagra trasera.
+        const hinge = [-4.3, BY, 0];
+        const bodyPivot = pivot(THREE, 'body', hinge);
+        g.add(bodyPivot);
+        g.updateMatrixWorld(true);
+        [bodyGrp, heap, tailStripe].concat(bodyDecals).forEach(o => bodyPivot.attach(o));
+        g.userData.dump = {hinge: [hinge[0], hinge[1]], top: [-0.6, BY + 0.05], z: 1.5, len: new THREE.Vector3(-0.6,
+            BY + 0.05, 1.5).distanceTo(new THREE.Vector3(0.9, 2.3, 1.35))};
+
         const out = bake(THREE, g);
-        const load = out.children.find(c => c.geometry === heapGeo);
+        const load = part(out, 'load');
         if (load) {
             load.visible = !!loaded;
         }
+        setDump(THREE, out, 0);
         out.scale.setScalar(s);
-        out.userData.load = load;
         out.userData.length = L * s;
         out.userData.width = W * s;
         out.userData.tireDiameter = R * 2 * s;
         return out;
+    };
+
+    /**
+     * Levanta la tolva del camión (radianes) y reorienta los cilindros de levante.
+     *
+     * @param {Object} THREE
+     * @param {Object} truck modelo de camión
+     * @param {number} a ángulo de la tolva (0 = bajada)
+     */
+    const setDump = function(THREE, truck, a) {
+        const d = truck.userData.dump;
+        const body = part(truck, 'body');
+        if (!d || !body) {
+            return;
+        }
+        body.rotation.z = a;
+        const Y = new THREE.Vector3(0, 1, 0);
+        const Z = new THREE.Vector3(0, 0, 1);
+        [1, -1].forEach(function(sd) {
+            const h = part(truck, 'hoist' + sd);
+            if (!h) {
+                return;
+            }
+            const top = new THREE.Vector3(d.top[0] - d.hinge[0], d.top[1] - d.hinge[1], 0).applyAxisAngle(Z, a)
+                .add(new THREE.Vector3(d.hinge[0], d.hinge[1], sd * d.z));
+            const dir = top.sub(h.position);
+            const len = dir.length();
+            h.quaternion.setFromUnitVectors(Y, dir.normalize());
+            h.scale.set(1, len / d.len, 1);
+        });
+    };
+
+    /**
+     * Ciclo de la pala: excavar en el frente (giro 0), girar cargada hacia el camión
+     * (giro = swing), vaciar el balde y volver.
+     *
+     * @param {Object} THREE
+     * @param {Object} shovel modelo de pala
+     * @param {number} t tiempo (s)
+     * @param {number} swing ángulo de giro hacia el camión (rad)
+     */
+    const animateShovel = function(THREE, shovel, t, swing) {
+        const up = part(shovel, 'upper');
+        const front = part(shovel, 'front');
+        const rig = shovel.userData.rig;
+        if (!up || !front || !rig) {
+            return;
+        }
+        const T = 34;
+        const p = ((t % T) + T) % T / T;
+        const ease = x => x * x * (3 - 2 * x);
+        const seg = (a, b) => ease(Math.min(1, Math.max(0, (p - a) / (b - a))));
+        // Excavación: el balde sube por el frente; giro, descarga y retorno.
+        const dig = seg(0.0, 0.3);
+        const out1 = seg(0.32, 0.47);
+        const back = seg(0.58, 0.78);
+        const lower = seg(0.8, 0.98);
+        up.rotation.y = swing * (out1 - back);
+        let ang = -0.45 + 0.75 * dig;
+        ang -= 0.75 * lower;
+        front.rotation.z = ang;
+        const crowd = 1.2 * Math.sin(dig * Math.PI) - 0.6 * lower;
+        const dir = new THREE.Vector3(Math.cos(0.6), Math.sin(0.6), 0);
+        front.position.copy(front.userData.home || (front.userData.home = front.position.clone())).addScaledVector(dir,
+            crowd);
+        const load = part(shovel, 'dload');
+        if (load) {
+            load.visible = p > 0.18 && p < 0.52;
+        }
+        // Cables desde la punta de pluma hasta el estrobo del balde.
+        front.updateMatrix();
+        const bail = new THREE.Vector3(rig.bail[0], rig.bail[1], 0).applyMatrix4(front.matrix);
+        [1, -1].forEach(function(sd) {
+            const r = part(shovel, 'rope' + sd);
+            if (!r) {
+                return;
+            }
+            const a = new THREE.Vector3(rig.point[0], rig.point[1], sd * rig.ropeZ);
+            const b = bail.clone().setZ(sd * rig.ropeZ);
+            const d = b.sub(a);
+            r.position.copy(a);
+            r.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
+            r.scale.set(1, d.length(), 1);
+        });
+    };
+
+    /**
+     * Postura del cargador: elevación de brazos y giro del balde (radianes).
+     *
+     * @param {Object} loader
+     * @param {number} lift 0 = abajo
+     * @param {number} tilt positivo = recogido, negativo = vaciando
+     * @param {boolean} loaded material en el balde
+     */
+    const setLoaderPose = function(loader, lift, tilt, loaded) {
+        const l = part(loader, 'lift');
+        const b = part(loader, 'bucket');
+        if (l) {
+            l.rotation.z = lift;
+        }
+        if (b) {
+            b.rotation.z = tilt - lift;
+        }
+        const m = part(loader, 'bload');
+        if (m) {
+            m.visible = !!loaded;
+        }
     };
 
     // ---------------------------------------------------------------------
@@ -1243,9 +1413,13 @@ define([], function() {
         const saddle = foot.clone().lerp(point, 0.43);
         rb(up, THREE, M.yellow, [1.8, 1.8, 2.6], [saddle.x, saddle.y, 0], 0.2);
         const dip = new THREE.Vector3(17.0, 6.6, 0);
+        // Conjunto mango + balde como parte móvil (pivote en la montura).
+        const front = pivot(THREE, 'front', [saddle.x, saddle.y, 0]);
+        up.add(front);
+        const rel = v => v.clone().sub(new THREE.Vector3(saddle.x, saddle.y, 0));
         [-0.65, 0.65].forEach(function(z) {
-            up.add(rod(THREE, saddle.clone().setZ(z).add(new THREE.Vector3(-3.0, 1.2, 0)), dip.clone().setZ(z)
-                .add(new THREE.Vector3(-1.6, 0.8, 0)), 0.38, M.yellow, 12));
+            front.add(rod(THREE, rel(saddle.clone().setZ(z).add(new THREE.Vector3(-3.0, 1.2, 0))), rel(dip.clone().setZ(z)
+                .add(new THREE.Vector3(-1.6, 0.8, 0))), 0.38, M.yellow, 12));
         });
         const dipper = new THREE.Group();
         const dshape = new THREE.Shape();
@@ -1270,13 +1444,28 @@ define([], function() {
             tooth.rotateZ(-Math.PI / 2 - 0.15);
             dipper.add(mesh(THREE, tooth, M.steelLight, 2.7, 1.75, -1.8 + k * 0.9));
         }
-        dipper.position.copy(dip);
+        // Carga dentro del balde (visible entre la excavación y la descarga).
+        const dl = new THREE.SphereGeometry(1, 16, 8, 0, TAU, 0, Math.PI / 2);
+        const dlm = mesh(THREE, dl, M.rock, 0.2, 1.4, 0);
+        dlm.scale.set(1.9, 1.0, 2.0);
+        dlm.userData.keep = true;
+        dlm.name = 'mlx:dload';
+        dipper.add(dlm);
+        dipper.position.copy(rel(dip));
         dipper.rotation.z = -0.25;
-        up.add(dipper);
-        [-0.5, 0.5].forEach(function(z) {
-            up.add(rod(THREE, point.clone().setZ(z).add(new THREE.Vector3(1.4, -0.8, 0)), dip.clone().setZ(z)
-                .add(new THREE.Vector3(1.6, 2.2, 0)), 0.08, M.rope, 6));
+        front.add(dipper);
+        // Cables de izaje dinámicos (cilindro unitario que se orienta cada cuadro).
+        const ropeGeo = new THREE.CylinderGeometry(0.08, 0.08, 1, 6);
+        ropeGeo.translate(0, 0.5, 0);
+        [1, -1].forEach(function(sd) {
+            const rp = mesh(THREE, ropeGeo, M.rope);
+            rp.userData.keep = true;
+            rp.name = 'mlx:rope' + sd;
+            up.add(rp);
         });
+        up.userData.part = 'upper';
+        g.userData.rig = {point: [point.x + 1.4, point.y - 0.8], bail: [dip.x - saddle.x + 0.9, dip.y - saddle.y + 3.3],
+            ropeZ: 0.5};
         // Focos.
         [-1, 1].forEach(function(sd) {
             rb(up, THREE, M.headlight, [0.15, 0.35, 0.55], [3.35, 7.2, sd * 4.0], 0.05);
@@ -1284,6 +1473,7 @@ define([], function() {
         g.add(up);
         const out = bake(THREE, g);
         out.userData.kind = 'shovel';
+        animateShovel(THREE, out, 0, 0);
         return out;
     };
 
@@ -1477,6 +1667,7 @@ define([], function() {
         rb(g, THREE, M.yellow, [3.4, 1.4, 1.9], [2.1, 2.05, 0], 0.22);
 
         // Brazos de levante curvos (perfil extruido) y varillaje en Z.
+        const iLift = g.children.length;
         const arm = new THREE.Shape();
         arm.moveTo(0, -0.35);
         arm.quadraticCurveTo(2.0, -0.1, 4.6, -1.7);
@@ -1498,6 +1689,7 @@ define([], function() {
         g.add(rod(THREE, new THREE.Vector3(3.9, 3.0, 0), new THREE.Vector3(5.7, 1.6, 0), 0.14, M.yellow, 10));
 
         // Balde con placas laterales, labio y dientes.
+        const iBucket = g.children.length;
         const bshape = new THREE.Shape();
         bshape.moveTo(0, 0);
         bshape.lineTo(1.95, -0.1);
@@ -1524,6 +1716,24 @@ define([], function() {
             tooth.rotateZ(-Math.PI / 2);
             g.add(mesh(THREE, tooth, M.steelLight, 7.85, 0.27, -1.85 + k * 0.53));
         }
+
+        const iEnd = g.children.length;
+        // Material dentro del balde (visible al cargar).
+        const bl = mesh(THREE, new THREE.SphereGeometry(1, 14, 8, 0, TAU, 0, Math.PI / 2), M.rock, 6.6, 0.45, 0);
+        bl.scale.set(0.95, 0.75, 1.9);
+        bl.userData.keep = true;
+        bl.name = 'mlx:bload';
+        g.add(bl);
+        // Brazos y balde como partes móviles anidadas.
+        const kids = g.children.slice();
+        const liftP = pivot(THREE, 'lift', [1.6, 3.4, 0]);
+        const bucketP = pivot(THREE, 'bucket', [5.75, 1.3, 0]);
+        g.add(liftP);
+        g.updateMatrixWorld(true);
+        liftP.attach(bucketP);
+        g.updateMatrixWorld(true);
+        kids.slice(iLift, iBucket).forEach(o => liftP.attach(o));
+        kids.slice(iBucket, iEnd).concat([bl]).forEach(o => bucketP.attach(o));
 
         // Rotulación.
         [-1, 1].forEach(function(sd) {
@@ -1552,14 +1762,20 @@ define([], function() {
      * equipamiento minero: defensa, pértiga con banderín, baliza, barra de luces,
      * jaula antivuelco, snorkel, pisaderas, cintas reflectantes y número interno.
      *
+     * Variantes (proporciones y rasgos reales de las camionetas más usadas en faenas chilenas,
+     * sin logotipos de fabricantes): hx (doble cabina tradicional), lx (escudo frontal en «X»
+     * y transición curva cabina–caja) y tx (frente alto rectangular).
+     *
      * @param {Object} THREE
      * @param {string} number número interno
+     * @param {string} variant hx | lx | tx
      * @returns {Object}
      */
-    const pickup = function(THREE, number) {
+    const pickup = function(THREE, number, variant) {
         const M = mats(THREE);
         const g = new THREE.Group();
-        const W = 1.86;
+        variant = variant || 'hx';
+        const W = variant === 'tx' ? 1.9 : (variant === 'lx' ? 1.815 : 1.855);
         const paint = M.redPaint;
         const xr = -1.55;
         const xf = 1.55;
@@ -1572,14 +1788,27 @@ define([], function() {
         lo.absarc(xr, 0.42, 0.5, Math.PI * 0.94, Math.PI * 0.06, true);
         lo.lineTo(xf - 0.5, 0.52);
         lo.absarc(xf, 0.42, 0.5, Math.PI * 0.94, Math.PI * 0.06, true);
+        // Silueta según variante: altura del frente del capó, base del parabrisas y borde de la caja.
+        const hf = variant === 'tx' ? 1.1 : (variant === 'lx' ? 0.93 : 1.0);
+        const hb = variant === 'tx' ? 1.2 : (variant === 'lx' ? 1.13 : 1.16);
+        const bt = variant === 'tx' ? 1.27 : (variant === 'lx' ? 1.2 : 1.22);
         lo.lineTo(2.55, 0.52);
         lo.quadraticCurveTo(2.72, 0.56, 2.72, 0.78);
-        lo.lineTo(2.68, 1.0);
-        lo.quadraticCurveTo(2.5, 1.08, 2.1, 1.1);
-        lo.lineTo(1.0, 1.16);
-        lo.lineTo(-1.15, 1.16);
-        lo.lineTo(-1.15, 1.22);
-        lo.lineTo(-2.68, 1.22);
+        lo.lineTo(2.68, hf);
+        if (variant === 'tx') {
+            lo.lineTo(2.45, hf + 0.06);
+        } else {
+            lo.quadraticCurveTo(2.5, hf + 0.08, 2.1, hf + 0.1);
+        }
+        lo.lineTo(1.0, hb);
+        lo.lineTo(-1.15, hb);
+        if (variant === 'lx') {
+            // Línea «J»: el borde de la caja desciende en curva desde la cabina.
+            lo.quadraticCurveTo(-1.3, hb - 0.06, -1.5, bt);
+        } else {
+            lo.lineTo(-1.15, bt);
+        }
+        lo.lineTo(-2.68, bt);
         lo.lineTo(-2.7, 0.62);
         lo.closePath();
         const lower = new THREE.ExtrudeGeometry(lo, {depth: W - 0.14, bevelEnabled: true, bevelSize: 0.06,
@@ -1598,7 +1827,10 @@ define([], function() {
         cab.closePath();
         const cg = new THREE.ExtrudeGeometry(cab, {depth: W - 0.34, bevelEnabled: true, bevelSize: 0.07,
             bevelThickness: 0.08, bevelSegments: 4, curveSegments: 10});
-        cg.translate(0, 1.15, -(W - 0.34) / 2);
+        cg.translate(0, hb - 0.01, -(W - 0.34) / 2);
+        if (variant === 'tx') {
+            cg.scale(1, 1.06, 1);
+        }
         g.add(mesh(THREE, cg, paint));
         // Vidrios: parabrisas, laterales y luneta.
         const wind = mesh(THREE, new THREE.PlaneGeometry(0.84, W - 0.42), M.glass, 0.72, 1.48, 0);
@@ -1659,22 +1891,65 @@ define([], function() {
         rear.rotateY(-Math.PI / 2 + 0.08);
         g.add(rear);
 
-        // Frente: parrilla con emblema, focos, defensa minera y barra de luces.
-        rb(g, THREE, M.plastic, [0.06, 0.32, 1.25], [2.71, 0.84, 0], 0.03);
-        for (let k = 0; k < 4; k++) {
-            rb(g, THREE, M.chrome, [0.02, 0.025, 1.18], [2.745, 0.73 + k * 0.075, 0], 0.008);
+        // Frente según variante (proporciones y rasgos de las camionetas más usadas en faena):
+        // hx = parrilla trapezoidal grande con barra cromada; lx = escudo en «X» cromado con
+        // focos altos y delgados; tx = parrilla rectangular vertical con lamas cromadas.
+        const front = function(x, y, z) {
+            return [2.66 + x, y, z];
+        };
+        if (variant === 'lx') {
+            rb(g, THREE, M.plastic, [0.06, 0.3, 0.95], front(0.05, 0.82, 0), 0.03);
+            for (let k = 0; k < 5; k++) {
+                rb(g, THREE, M.steel, [0.02, 0.02, 0.9], front(0.08, 0.7 + k * 0.06, 0), 0.006);
+            }
+            [-1, 1].forEach(function(sd) {
+                // Barras cromadas del escudo en «X».
+                g.add(tube(THREE, [front(0.05, 0.98, sd * 0.42), front(0.08, 0.86, sd * 0.56), front(0.1, 0.62, sd * 0.66),
+                    front(0.12, 0.46, sd * 0.6)], 0.022, M.chrome, true));
+                const hl = rb(g, THREE, M.headlight, [0.05, 0.07, 0.38], front(0.0, 0.99, sd * 0.68), 0.02);
+                hl.rotation.x = sd * -0.12;
+                rb(g, THREE, M.headlight, [0.03, 0.2, 0.04], front(0.08, 0.62, sd * 0.8), 0.01);
+            });
+            rb(g, THREE, M.chrome, [0.03, 0.03, 0.9], front(0.08, 0.99, 0), 0.01);
+        } else if (variant === 'tx') {
+            rb(g, THREE, M.plastic, [0.06, 0.44, 1.2], front(0.05, 0.83, 0), 0.04);
+            for (let k = 0; k < 9; k++) {
+                rb(g, THREE, M.chrome, [0.03, 0.4, 0.025], front(0.09, 0.83, -0.52 + k * 0.13), 0.008);
+            }
+            rb(g, THREE, M.chrome, [0.035, 0.04, 1.22], front(0.09, 1.05, 0), 0.01);
+            [-1, 1].forEach(function(sd) {
+                rb(g, THREE, M.headlight, [0.06, 0.2, 0.3], front(0.0, 0.92, sd * 0.78), 0.03);
+                rb(g, THREE, M.amber, [0.04, 0.06, 0.1], front(0.02, 0.8, sd * 0.86), 0.01);
+                rb(g, THREE, M.headlight, [0.05, 0.08, 0.12], front(0.12, 0.62, sd * 0.62), 0.02);
+            });
+        } else {
+            // Parrilla trapezoidal (más ancha abajo) con barra cromada que une los focos.
+            const tz = new THREE.Shape();
+            tz.moveTo(-0.5, 0.0);
+            tz.lineTo(0.5, 0.0);
+            tz.lineTo(0.62, -0.4);
+            tz.lineTo(-0.62, -0.4);
+            tz.closePath();
+            const tg = new THREE.ExtrudeGeometry(tz, {depth: 0.06, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02,
+                bevelSegments: 1});
+            tg.rotateY(Math.PI / 2);
+            g.add(mesh(THREE, tg, M.plastic, 2.68, 1.03, 0));
+            for (let k = 0; k < 6; k++) {
+                rb(g, THREE, M.steel, [0.02, 0.02, 1.0 + k * 0.03], front(0.1, 0.95 - k * 0.06, 0), 0.006);
+            }
+            rb(g, THREE, M.chrome, [0.03, 0.05, 1.5], front(0.09, 0.98, 0), 0.015);
+            [-1, 1].forEach(function(sd) {
+                const hl = rb(g, THREE, M.headlight, [0.06, 0.1, 0.38], front(0.0, 0.97, sd * 0.72), 0.03);
+                hl.rotation.y = sd * -0.15;
+                rb(g, THREE, M.plastic, [0.06, 0.12, 0.2], front(0.1, 0.62, sd * 0.68), 0.03);
+                rb(g, THREE, M.headlight, [0.05, 0.06, 0.12], front(0.13, 0.62, sd * 0.68), 0.02);
+            });
         }
-        const emb = badge(THREE, BRAND.pickup, 0.34, 0.09, {bg: '#151515'});
-        emb.position.set(2.775, 0.9, 0);
+        const emb = badge(THREE, BRAND.pickup, 0.3, 0.08, {bg: '#151515'});
+        emb.position.set(2.79, variant === 'lx' ? 0.86 : 0.88, 0);
         emb.rotation.y = Math.PI / 2;
         g.add(emb);
-        [-1, 1].forEach(function(sd) {
-            const hl = rb(g, THREE, M.headlight, [0.06, 0.12, 0.34], [2.66, 0.93, sd * 0.72], 0.03);
-            hl.rotation.y = sd * -0.12;
-            rb(g, THREE, M.amber, [0.04, 0.05, 0.12], [2.68, 0.84, sd * 0.84], 0.01);
-            rb(g, THREE, M.headlight, [0.05, 0.08, 0.08], [2.95, 0.68, sd * 0.45], 0.02);
-        });
-        rb(g, THREE, M.plastic, [0.2, 0.22, W + 0.04], [2.72, 0.6, 0], 0.07);
+        rb(g, THREE, M.plastic, [0.2, 0.22, W + 0.04], [2.72, 0.55, 0], 0.07);
         // Defensa (bullbar) tubular.
         g.add(tube(THREE, [[2.8, 0.48, -0.78], [2.98, 0.62, -0.72], [3.0, 1.02, -0.55], [3.0, 1.06, 0], [3.0, 1.02, 0.55],
             [2.98, 0.62, 0.72], [2.8, 0.48, 0.78]], 0.038, M.black, true));
@@ -1687,12 +1962,13 @@ define([], function() {
             true));
         rb(g, THREE, M.plastic, [0.18, 0.12, 0.12], [0.66, 1.96, 0.82], 0.03);
         // Techo: barra de luces, baliza y antena.
-        rb(g, THREE, M.plastic, [0.12, 0.08, 1.35], [0.3, 1.94, 0], 0.03);
+        const ro = (variant === 'tx' ? 0.1 : 0) + (hb - 1.16);
+        rb(g, THREE, M.plastic, [0.12, 0.08, 1.35], [0.3, 1.94 + ro, 0], 0.03);
         for (let k = -2; k <= 2; k++) {
-            rb(g, THREE, M.headlight, [0.03, 0.06, 0.2], [0.37, 1.94, k * 0.25], 0.01);
+            rb(g, THREE, M.headlight, [0.03, 0.06, 0.2], [0.37, 1.94 + ro, k * 0.25], 0.01);
         }
-        g.add(mesh(THREE, new THREE.CylinderGeometry(0.09, 0.11, 0.16, 16), M.amber, -0.6, 1.98, 0));
-        g.add(rod(THREE, new THREE.Vector3(-0.9, 1.9, -0.6), new THREE.Vector3(-0.95, 2.6, -0.6), 0.006, M.black, 4));
+        g.add(mesh(THREE, new THREE.CylinderGeometry(0.09, 0.11, 0.16, 16), M.amber, -0.6, 1.98 + ro, 0));
+        g.add(rod(THREE, new THREE.Vector3(-0.9, 1.9 + ro, -0.6), new THREE.Vector3(-0.95, 2.6 + ro, -0.6), 0.006, M.black, 4));
 
         // Pick-up abierta: piso con revestimiento, bordes, jaula antivuelco y portalón.
         rb(g, THREE, M.plastic, [1.45, 0.03, W - 0.26], [-1.95, 1.2, 0], 0.01);
@@ -1708,7 +1984,16 @@ define([], function() {
         g.add(tube(THREE, [[-2.2, 1.95, -0.72], [-2.2, 1.95, 0.72]], 0.03, M.black));
         // Trasera: focos, parachoques con cinta, patente.
         [-1, 1].forEach(function(sd) {
-            rb(g, THREE, M.taillight, [0.04, 0.32, 0.14], [-2.73, 0.98, sd * 0.84], 0.02);
+            if (variant === 'tx') {
+                rb(g, THREE, M.taillight, [0.04, 0.22, 0.22], [-2.73, 1.02, sd * 0.8], 0.02);
+            } else if (variant === 'lx') {
+                rb(g, THREE, M.taillight, [0.04, 0.42, 0.1], [-2.73, 0.95, sd * 0.84], 0.02);
+                // Transición curva cabina–caja.
+                g.add(tube(THREE, [[-1.12, 1.2, sd * (W / 2 - 0.05)], [-1.3, 1.12, sd * (W / 2 - 0.02)],
+                    [-1.55, 1.24, sd * (W / 2 - 0.02)]], 0.03, paint, true));
+            } else {
+                rb(g, THREE, M.taillight, [0.04, 0.32, 0.14], [-2.73, 0.98, sd * 0.84], 0.02);
+            }
         });
         rb(g, THREE, M.chrome, [0.18, 0.2, W - 0.1], [-2.76, 0.6, 0], 0.05);
         const plate = decal(THREE, 'FTRZ·21', 0.36, 0.12, '#111111');
@@ -1743,6 +2028,7 @@ define([], function() {
         g.add(mesh(THREE, new THREE.SphereGeometry(0.035, 8, 6), M.amber, -2.55, 5.63, -0.8));
         const out = bake(THREE, g);
         out.userData.kind = 'pickup';
+        out.userData.variant = variant;
         return out;
     };
 
@@ -1869,6 +2155,436 @@ define([], function() {
         rb(g, THREE, M.black, [0.02, 0.08, 0.1], [-0.09, 1.64, 0], 0.01);
         const out = bake(THREE, g);
         out.userData.kind = 'station';
+        return out;
+    };
+
+    // ---------------------------------------------------------------------
+    // Equipos de apoyo y subterráneos.
+    // ---------------------------------------------------------------------
+
+    /**
+     * Rotulación lateral de un equipo (ambos costados).
+     *
+     * @param {Object} g grupo
+     * @param {Object} THREE
+     * @param {string} text
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z media anchura
+     * @param {number} w ancho
+     * @param {string} color
+     */
+    const sideDecals = function(g, THREE, text, x, y, z, w, color) {
+        [-1, 1].forEach(function(sd) {
+            const d = decal(THREE, text, w, w * 0.16, color || '#151515');
+            d.position.set(x, y, sd * z);
+            if (sd < 0) {
+                d.rotation.y = Math.PI;
+            }
+            g.add(d);
+        });
+    };
+
+    /**
+     * Cabina ROPS con vidrios en los cuatro costados.
+     *
+     * @param {Object} THREE
+     * @param {Object} M
+     * @param {number} w
+     * @param {number} h
+     * @param {number} d
+     * @param {Object} paint
+     * @returns {Object}
+     */
+    const ropsCab = function(THREE, M, w, h, d, paint) {
+        const c = new THREE.Group();
+        rb(c, THREE, paint, [w, 0.35, d], [0, 0.18, 0], 0.06);
+        [[w / 2, d / 2], [w / 2, -d / 2], [-w / 2, d / 2], [-w / 2, -d / 2]].forEach(function(p) {
+            rb(c, THREE, paint, [0.12, h, 0.12], [p[0] * 0.95, h / 2 + 0.2, p[1] * 0.95], 0.03);
+        });
+        rb(c, THREE, paint, [w + 0.25, 0.16, d + 0.25], [0, h + 0.25, 0], 0.06);
+        [[w / 2 * 0.97, 0, Math.PI / 2, d * 0.85], [-w / 2 * 0.97, 0, -Math.PI / 2, d * 0.85]].forEach(function(p) {
+            const gl = mesh(THREE, new THREE.PlaneGeometry(p[3], h * 0.8), M.glass, p[0], h * 0.55 + 0.2, p[1]);
+            gl.rotation.y = p[2];
+            c.add(gl);
+        });
+        [-1, 1].forEach(function(sd) {
+            c.add(mesh(THREE, new THREE.PlaneGeometry(w * 0.85, h * 0.8), M.glass, 0, h * 0.55 + 0.2, sd * d / 2 * 0.97));
+            rb(c, THREE, M.headlight, [0.1, 0.14, 0.24], [w / 2 + 0.1, h + 0.3, sd * d * 0.35], 0.03);
+            rb(c, THREE, M.headlight, [0.1, 0.14, 0.24], [-w / 2 - 0.1, h + 0.3, sd * d * 0.35], 0.03);
+        });
+        c.add(mesh(THREE, new THREE.CylinderGeometry(0.09, 0.1, 0.16, 12), M.amber, -w * 0.25, h + 0.42, 0));
+        return c;
+    };
+
+    /**
+     * Hoja curva (vertedera) extruida a lo ancho (z).
+     *
+     * @param {Object} THREE
+     * @param {number} h alto
+     * @param {number} w ancho
+     * @param {number} t espesor
+     * @returns {Object} BufferGeometry (cara cóncava hacia +x)
+     */
+    const curvedBlade = function(THREE, h, w, t) {
+        const s = new THREE.Shape();
+        s.moveTo(0, 0);
+        s.quadraticCurveTo(-h * 0.45, h * 0.45, 0.1, h);
+        s.lineTo(0.1 - t, h);
+        s.quadraticCurveTo(-h * 0.45 - t, h * 0.45, -t, 0);
+        s.closePath();
+        const g = new THREE.ExtrudeGeometry(s, {depth: w, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03,
+            bevelSegments: 1, curveSegments: 10});
+        g.translate(0, 0, -w / 2);
+        return g;
+    };
+
+    /**
+     * Motoniveladora (clase 16) con tándem trasero, cuello de cisne, círculo y vertedera.
+     *
+     * @param {Object} THREE
+     * @returns {Object}
+     */
+    const motorGrader = function(THREE) {
+        const M = mats(THREE);
+        const g = new THREE.Group();
+        const R = 0.82;
+        const lab = BRAND.tire + '  23.5R25  G-2';
+        [[-2.55, 1], [-2.55, -1], [-4.15, 1], [-4.15, -1], [3.9, 1], [3.9, -1]].forEach(function(p) {
+            const w = tire(THREE, M, R, 0.6, {pattern: 'loader', label: lab});
+            w.position.set(p[0], R, p[1] * 1.2);
+            if (p[1] < 0) {
+                w.rotation.y = Math.PI;
+            }
+            g.add(w);
+        });
+        [-1, 1].forEach(function(sd) {
+            rb(g, THREE, M.yellow, [2.4, 0.5, 0.25], [-3.35, R, sd * 0.85], 0.08);
+        });
+        // Bastidor trasero y sala de motor.
+        const eng = new THREE.Shape();
+        eng.moveTo(-5.3, 0);
+        eng.lineTo(-2.2, 0);
+        eng.lineTo(-2.2, 1.25);
+        eng.lineTo(-4.8, 1.1);
+        eng.quadraticCurveTo(-5.3, 1.05, -5.3, 0.6);
+        eng.closePath();
+        const eg = new THREE.ExtrudeGeometry(eng, {depth: 1.9, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08,
+            bevelSegments: 2});
+        eg.translate(0, 1.15, -0.95);
+        g.add(mesh(THREE, eg, M.yellow));
+        rb(g, THREE, M.grille, [0.1, 0.9, 1.6], [-5.4, 1.75, 0], 0.03);
+        g.add(rod(THREE, new THREE.Vector3(-3.4, 2.4, 0.5), new THREE.Vector3(-3.4, 3.2, 0.5), 0.09, M.steel, 12));
+        [-1, 1].forEach(function(sd) {
+            for (let k = 0; k < 3; k++) {
+                const lv = mesh(THREE, new THREE.PlaneGeometry(0.6, 0.6), M.louver, -4.6 + k * 0.75, 1.75, sd * 1.04);
+                if (sd < 0) {
+                    lv.rotation.y = Math.PI;
+                }
+                g.add(lv);
+            }
+        });
+        // Ripper trasero.
+        rb(g, THREE, M.steel, [0.4, 0.4, 1.9], [-5.8, 1.1, 0], 0.06);
+        [-0.6, 0, 0.6].forEach(function(z) {
+            rb(g, THREE, M.steel, [0.18, 1.2, 0.12], [-6.0, 0.6, z], 0.03);
+        });
+        // Cabina.
+        const cab = ropsCab(THREE, M, 1.8, 1.85, 1.9, M.yellow);
+        cab.position.set(-1.3, 1.25, 0);
+        g.add(cab);
+        // Cuello de cisne (bastidor delantero) y eje delantero.
+        g.add(tube(THREE, [[-0.4, 1.75, 0], [1.2, 2.05, 0], [3.0, 1.95, 0], [3.9, 1.45, 0]], 0.26, M.yellow, true));
+        rb(g, THREE, M.yellow, [0.5, 0.35, 2.1], [3.9, R + 0.1, 0], 0.06);
+        g.add(rod(THREE, new THREE.Vector3(3.9, 1.45, 0), new THREE.Vector3(3.9, R + 0.2, 0), 0.2, M.yellow, 10));
+        rb(g, THREE, M.stripes, [0.15, 0.4, 1.6], [4.6, 0.95, 0], 0.04);
+        [-1, 1].forEach(function(sd) {
+            rb(g, THREE, M.headlight, [0.08, 0.14, 0.24], [4.0, 1.85, sd * 0.4], 0.03);
+        });
+        // Barra de tiro, círculo y vertedera orientada en diagonal.
+        g.add(rod(THREE, new THREE.Vector3(3.5, 1.25, 0), new THREE.Vector3(1.4, 0.95, 0), 0.12, M.steel, 8));
+        const ring = new THREE.TorusGeometry(1.0, 0.09, 8, 32);
+        ring.rotateX(Math.PI / 2);
+        g.add(mesh(THREE, ring, M.steel, 1.3, 0.95, 0));
+        const blade = mesh(THREE, curvedBlade(THREE, 0.75, 4.3, 0.06), M.steel, 1.05, 0.18, 0);
+        blade.rotation.y = 0.5;
+        g.add(blade);
+        const edge = rb(g, THREE, M.steelLight, [0.08, 0.12, 4.3], [1.05, 0.2, 0], 0.02);
+        edge.rotation.y = 0.5;
+        [-1, 1].forEach(function(sd) {
+            hydraulic(g, THREE, M, [1.6, 2.05, sd * 0.35], [1.05 + sd * Math.sin(0.5) * -1.6, 0.9, sd * 1.4], 0.08);
+        });
+        sideDecals(g, THREE, BRAND.heavy + ' MG-16', -3.7, 2.0, 1.05, 1.9);
+        const out = bake(THREE, g);
+        out.userData.kind = 'grader';
+        return out;
+    };
+
+    /**
+     * Camión aljibe (riego de caminos) sobre el chasis del camión de extracción.
+     *
+     * @param {Object} THREE
+     * @param {string} number número interno
+     * @returns {Object} userData.spray = puntos de las boquillas (coordenadas del modelo)
+     */
+    const waterTruck = function(THREE, number) {
+        const M = mats(THREE);
+        const t = haulTruck(THREE, 227, false, number || 'AL-02');
+        ['body', 'hoist1', 'hoist-1'].forEach(function(n) {
+            const p = part(t, n);
+            if (p) {
+                p.parent.remove(p);
+            }
+        });
+        delete t.userData.dump;
+        const g = new THREE.Group();
+        const tank = new THREE.CylinderGeometry(1.75, 1.75, 8.4, 40, 1);
+        tank.rotateZ(Math.PI / 2);
+        const tm = mesh(THREE, tank, M.yellowHi, -1.8, 5.35, 0);
+        tm.scale.set(1, 1, 1.85);
+        g.add(tm);
+        [-6.0, 2.4].forEach(function(x, i) {
+            const cap = new THREE.SphereGeometry(1.75, 32, 16, 0, TAU, 0, Math.PI / 2);
+            cap.rotateZ(i ? -Math.PI / 2 : Math.PI / 2);
+            const cm = mesh(THREE, cap, M.yellowHi, x, 5.35, 0);
+            cm.scale.set(0.28, 1, 1.85);
+            g.add(cm);
+        });
+        for (let x = -5.0; x <= 1.6; x += 1.65) {
+            const band = new THREE.TorusGeometry(1.77, 0.06, 6, 40);
+            band.rotateY(Math.PI / 2);
+            const bm = mesh(THREE, band, M.steel, x, 5.35, 0);
+            bm.scale.set(1, 1, 1.85);
+            g.add(bm);
+        }
+        // Base del estanque, pasarela superior, escotilla y escalera.
+        rb(g, THREE, M.steel, [8.6, 0.35, 2.4], [-1.8, 3.65, 0], 0.06);
+        rb(g, THREE, M.steelLight, [6.0, 0.06, 1.0], [-1.8, 7.12, 0], 0.02);
+        railing(g, THREE, M.yellow, [[-4.8, 7.12, 0.5], [1.2, 7.12, 0.5]], 0.9);
+        railing(g, THREE, M.yellow, [[-4.8, 7.12, -0.5], [1.2, 7.12, -0.5]], 0.9);
+        g.add(mesh(THREE, new THREE.CylinderGeometry(0.45, 0.45, 0.2, 20), M.steel, -2.0, 7.2, 0));
+        g.add(rod(THREE, new THREE.Vector3(2.3, 4.2, -3.2), new THREE.Vector3(1.5, 7.1, -0.6), 0.05, M.steel, 6));
+        // Barra de riego trasera con boquillas y cañón de agua frontal.
+        g.add(rod(THREE, new THREE.Vector3(-6.5, 1.6, -3.4), new THREE.Vector3(-6.5, 1.6, 3.4), 0.1, M.steel, 10));
+        const spray = [];
+        [-3.0, -1.0, 1.0, 3.0].forEach(function(z) {
+            const n = mesh(THREE, new THREE.ConeGeometry(0.12, 0.3, 10), M.chrome, -6.6, 1.5, z);
+            n.rotation.z = Math.PI / 2 + 0.6;
+            g.add(n);
+            spray.push([-6.75, 1.4, z]);
+        });
+        g.add(tube(THREE, [[-6.0, 3.7, 0], [-6.4, 2.6, 0], [-6.5, 1.65, 0]], 0.12, M.steel, true));
+        rb(g, THREE, M.steel, [0.6, 0.5, 0.6], [5.0, 4.6, 1.8], 0.08);
+        g.add(rod(THREE, new THREE.Vector3(5.0, 4.85, 1.8), new THREE.Vector3(5.9, 5.3, 1.8), 0.1, M.chrome, 10));
+        sideDecals(g, THREE, 'AGUA NO POTABLE', -1.8, 5.4, 1.75 * 1.85 + 0.02, 3.6, '#0d47a1');
+        sideDecals(g, THREE, BRAND.heavy + ' HT 227 W', -1.8, 4.5, 1.75 * 1.85 + 0.02, 2.6);
+        const bt = bake(THREE, g);
+        t.add(bt);
+        t.userData.kind = 'water';
+        t.userData.spray = spray;
+        return t;
+    };
+
+    /**
+     * Bulldozer sobre orugas (clase D10) con hoja semi-U y ripper.
+     *
+     * @param {Object} THREE
+     * @returns {Object}
+     */
+    const bulldozer = function(THREE) {
+        const M = mats(THREE);
+        const g = new THREE.Group();
+        crawler(g, THREE, M, 4.9, 1.45, 0.75, -1.45);
+        crawler(g, THREE, M, 4.9, 1.45, 0.75, 1.45);
+        // Rueda motriz elevada (rasgo característico) sobre cada oruga.
+        [-1.45, 1.45].forEach(function(z) {
+            const sp = new THREE.CylinderGeometry(0.75, 0.75, 0.55, 20);
+            sp.rotateX(Math.PI / 2);
+            g.add(mesh(THREE, sp, M.steel, -2.0, 1.75, z));
+        });
+        rb(g, THREE, M.yellow, [5.0, 0.8, 2.0], [0.2, 1.55, 0], 0.15);
+        const hood = new THREE.Shape();
+        hood.moveTo(0, 0);
+        hood.lineTo(3.0, 0);
+        hood.lineTo(3.1, 1.35);
+        hood.lineTo(0.2, 1.55);
+        hood.closePath();
+        const hg = new THREE.ExtrudeGeometry(hood, {depth: 1.8, bevelEnabled: true, bevelSize: 0.08, bevelThickness: 0.08,
+            bevelSegments: 2});
+        hg.translate(0, 1.9, -0.9);
+        g.add(mesh(THREE, hg, M.yellow));
+        rb(g, THREE, M.grille, [0.1, 1.15, 1.6], [3.2, 2.55, 0], 0.03);
+        g.add(rod(THREE, new THREE.Vector3(1.8, 3.4, 0.5), new THREE.Vector3(1.8, 4.3, 0.5), 0.1, M.steel, 12));
+        g.add(mesh(THREE, new THREE.CylinderGeometry(0.28, 0.28, 0.5, 14), M.black, 1.0, 3.6, -0.5));
+        const cab = ropsCab(THREE, M, 2.0, 2.0, 2.1, M.yellow);
+        cab.position.set(-1.1, 1.95, 0);
+        g.add(cab);
+        rb(g, THREE, M.yellow, [1.0, 1.4, 2.2], [-2.55, 2.2, 0], 0.15);
+        // Hoja semi-U con brazos de empuje y cilindros de levante.
+        g.add(mesh(THREE, curvedBlade(THREE, 2.1, 5.2, 0.12), M.yellow, 4.6, 0.05, 0));
+        [-1, 1].forEach(function(sd) {
+            const wing = mesh(THREE, curvedBlade(THREE, 2.1, 0.7, 0.12), M.yellow, 4.4, 0.05, sd * 2.8);
+            wing.rotation.y = sd * -0.45;
+            g.add(wing);
+            g.add(rod(THREE, new THREE.Vector3(0.0, 0.75, sd * 1.45), new THREE.Vector3(4.25, 0.6, sd * 1.6), 0.16, M.yellow,
+                10));
+            hydraulic(g, THREE, M, [2.9, 2.9, sd * 0.85], [4.25, 1.6, sd * 0.95], 0.13);
+        });
+        rb(g, THREE, M.steelLight, [0.15, 0.18, 5.2], [4.66, 0.1, 0], 0.03);
+        // Ripper de un vástago.
+        rb(g, THREE, M.steel, [0.5, 0.5, 1.6], [-3.4, 1.6, 0], 0.08);
+        rb(g, THREE, M.steel, [0.35, 2.2, 0.3], [-3.75, 0.8, 0], 0.06, [0, 0, 0.18]);
+        hydraulic(g, THREE, M, [-2.8, 2.5, 0.5], [-3.5, 1.7, 0.5], 0.11);
+        sideDecals(g, THREE, BRAND.heavy + ' BD-10', 1.6, 2.9, 0.98, 1.9);
+        const out = bake(THREE, g);
+        out.userData.kind = 'dozer';
+        return out;
+    };
+
+    /**
+     * Cargador de bajo perfil (LHD, scoop) para minería subterránea.
+     *
+     * @param {Object} THREE
+     * @returns {Object}
+     */
+    const lhd = function(THREE) {
+        const M = mats(THREE);
+        const g = new THREE.Group();
+        const R = 0.82;
+        const lab = BRAND.tire + '  26.5R25  L-5S  UNDERGROUND';
+        [[2.3, 1], [2.3, -1], [-2.1, 1], [-2.1, -1]].forEach(function(p) {
+            const w = tire(THREE, M, R, 0.66, {pattern: 'loader', label: lab});
+            w.position.set(p[0], R, p[1] * 1.15);
+            if (p[1] < 0) {
+                w.rotation.y = Math.PI;
+            }
+            g.add(w);
+        });
+        // Sección trasera (motor y contrapeso) baja.
+        rb(g, THREE, M.yellow, [4.4, 1.25, 2.4], [-2.6, 1.35, 0], 0.18);
+        rb(g, THREE, M.grille, [0.1, 0.8, 1.8], [-4.85, 1.45, 0], 0.03);
+        rb(g, THREE, M.stripes, [0.12, 0.3, 2.3], [-4.86, 0.8, 0], 0.03);
+        g.add(rod(THREE, new THREE.Vector3(-3.5, 2.0, 0.7), new THREE.Vector3(-3.5, 2.35, 0.7), 0.08, M.steel, 10));
+        // Puesto del operador lateral con techo FOPS.
+        rb(g, THREE, M.yellow, [1.6, 0.9, 1.0], [-0.2, 1.4, -0.75], 0.1);
+        [[-0.9, -1.15], [0.6, -1.15], [-0.9, -0.3], [0.6, -0.3]].forEach(function(p) {
+            rb(g, THREE, M.yellow, [0.1, 0.75, 0.1], [p[0], 2.2, p[1]], 0.02);
+        });
+        rb(g, THREE, M.yellow, [1.8, 0.12, 1.2], [-0.15, 2.6, -0.72], 0.04);
+        // Articulación, bastidor delantero, brazo central y balde.
+        g.add(mesh(THREE, new THREE.CylinderGeometry(0.35, 0.35, 1.0, 16), M.steel, 0.6, 1.2, 0));
+        rb(g, THREE, M.yellow, [2.4, 1.0, 2.0], [2.0, 1.25, 0], 0.15);
+        const boom = rb(g, THREE, M.yellow, [3.2, 0.5, 0.9], [3.1, 1.6, 0], 0.12);
+        boom.rotation.z = -0.22;
+        hydraulic(g, THREE, M, [1.4, 1.0, 0.6], [3.2, 1.75, 0.55], 0.12);
+        hydraulic(g, THREE, M, [1.4, 1.0, -0.6], [3.2, 1.75, -0.55], 0.12);
+        const bucket = new THREE.Shape();
+        bucket.moveTo(0, 0);
+        bucket.lineTo(1.7, -0.05);
+        bucket.lineTo(1.6, 0.2);
+        bucket.quadraticCurveTo(0.4, 0.2, 0.15, 1.2);
+        bucket.lineTo(-0.1, 1.25);
+        bucket.closePath();
+        const bg = new THREE.ExtrudeGeometry(bucket, {depth: 2.8, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04,
+            bevelSegments: 1});
+        bg.translate(0, 0, -1.4);
+        g.add(mesh(THREE, bg, M.steel, 4.4, 0.18, 0));
+        rb(g, THREE, M.steelLight, [0.25, 0.08, 2.85], [6.05, 0.15, 0], 0.02);
+        [-1, 1].forEach(function(sd) {
+            rb(g, THREE, M.headlight, [0.08, 0.14, 0.26], [3.15, 2.0, sd * 0.85], 0.03);
+            rb(g, THREE, M.headlight, [0.08, 0.14, 0.26], [-4.88, 2.0, sd * 0.85], 0.03);
+        });
+        sideDecals(g, THREE, BRAND.heavy + ' LH-14', -2.6, 1.6, 1.22, 1.7);
+        const out = bake(THREE, g);
+        out.userData.kind = 'lhd';
+        return out;
+    };
+
+    /**
+     * Jumbo de perforación de dos brazos para desarrollo de galerías.
+     *
+     * @param {Object} THREE
+     * @returns {Object}
+     */
+    const jumbo = function(THREE) {
+        const M = mats(THREE);
+        const g = new THREE.Group();
+        const R = 0.62;
+        [[1.6, 1], [1.6, -1], [-2.0, 1], [-2.0, -1]].forEach(function(p) {
+            const w = tire(THREE, M, R, 0.45, {pattern: 'loader', label: BRAND.tire + '  14.00R24  UNDERGROUND'});
+            w.position.set(p[0], R, p[1] * 1.0);
+            if (p[1] < 0) {
+                w.rotation.y = Math.PI;
+            }
+            g.add(w);
+        });
+        rb(g, THREE, M.yellow, [3.0, 1.0, 2.0], [-2.3, 1.2, 0], 0.15);
+        rb(g, THREE, M.yellow, [2.6, 0.7, 1.8], [1.3, 1.0, 0], 0.12);
+        // Carrete de cable eléctrico trasero.
+        const reel = new THREE.CylinderGeometry(0.75, 0.75, 1.1, 24);
+        reel.rotateX(Math.PI / 2);
+        g.add(mesh(THREE, reel, M.steel, -3.6, 1.6, 0));
+        const coil = new THREE.CylinderGeometry(0.6, 0.6, 1.0, 24);
+        coil.rotateX(Math.PI / 2);
+        g.add(mesh(THREE, coil, M.black, -3.6, 1.6, 0));
+        // Techo de protección del operador.
+        [[-0.9, 0.85], [-0.9, -0.85], [0.4, 0.85], [0.4, -0.85]].forEach(function(p) {
+            rb(g, THREE, M.yellow, [0.1, 1.3, 0.1], [p[0], 2.1, p[1]], 0.02);
+        });
+        rb(g, THREE, M.yellow, [1.7, 0.12, 2.0], [-0.25, 2.8, 0], 0.04);
+        // Dos brazos con viga de avance, perforadora y barra.
+        [-1, 1].forEach(function(sd) {
+            const a = new THREE.Vector3(2.4, 1.4, sd * 0.5);
+            const b = new THREE.Vector3(5.6, 2.2 + (sd > 0 ? 0.6 : 0), sd * 0.95);
+            g.add(rod(THREE, a, b, 0.17, M.yellow, 12));
+            hydraulic(g, THREE, M, [2.6, 1.1, sd * 0.8], [4.6, 2.0, sd * 0.9], 0.08);
+            rb(g, THREE, M.steel, [5.2, 0.18, 0.3], [b.x + 2.2, b.y + 0.15, b.z], 0.04);
+            rb(g, THREE, M.red, [0.8, 0.35, 0.35], [b.x + 1.0, b.y + 0.4, b.z], 0.06);
+            g.add(rod(THREE, new THREE.Vector3(b.x + 1.4, b.y + 0.4, b.z), new THREE.Vector3(b.x + 4.9, b.y + 0.4, b.z), 0.025,
+                M.steelLight, 6));
+        });
+        [-1, 1].forEach(function(sd) {
+            rb(g, THREE, M.headlight, [0.08, 0.14, 0.26], [2.65, 1.5, sd * 0.75], 0.03);
+        });
+        sideDecals(g, THREE, BRAND.heavy + ' DD-422', -2.3, 1.45, 1.02, 1.7);
+        const out = bake(THREE, g);
+        out.userData.kind = 'jumbo';
+        return out;
+    };
+
+    /**
+     * Torre de iluminación móvil (remolque con generador y mástil de 4 focos).
+     *
+     * @param {Object} THREE
+     * @returns {Object} userData.lamp = posición de los focos (modelo)
+     */
+    const lightTower = function(THREE) {
+        const M = mats(THREE);
+        const g = new THREE.Group();
+        rb(g, THREE, M.yellow, [2.6, 1.3, 1.3], [0, 1.15, 0], 0.12);
+        [-1, 1].forEach(function(sd) {
+            const w = tire(THREE, M, 0.33, 0.2, {pattern: 'allterrain', rim: 'alloy', label: BRAND.tire + '  ST'});
+            w.position.set(0, 0.33, sd * 0.8);
+            if (sd < 0) {
+                w.rotation.y = Math.PI;
+            }
+            g.add(w);
+        });
+        g.add(rod(THREE, new THREE.Vector3(1.3, 0.55, 0), new THREE.Vector3(2.6, 0.4, 0), 0.05, M.steel, 6));
+        [[1.1, 1], [1.1, -1], [-1.1, 1], [-1.1, -1]].forEach(function(p) {
+            g.add(rod(THREE, new THREE.Vector3(p[0], 0.7, p[1] * 0.6), new THREE.Vector3(p[0], 0.05, p[1] * 1.2), 0.04, M.steel,
+                6));
+        });
+        g.add(rod(THREE, new THREE.Vector3(-0.8, 1.8, 0), new THREE.Vector3(-0.8, 9.0, 0), 0.09, M.steelLight, 10));
+        rb(g, THREE, M.steel, [0.12, 0.9, 1.8], [-0.8, 9.1, 0], 0.03);
+        [[0.4, 0.5], [-0.4, 0.5], [0.4, -0.5], [-0.4, -0.5]].forEach(function(p) {
+            rb(g, THREE, M.steel, [0.2, 0.5, 0.65], [-0.7, 9.1 + p[0], p[1]], 0.04);
+            rb(g, THREE, M.headlight, [0.03, 0.42, 0.56], [-0.59, 9.1 + p[0], p[1]], 0.02);
+        });
+        sideDecals(g, THREE, BRAND.heavy + ' LT-6', 0, 1.3, 0.66, 1.2);
+        const out = bake(THREE, g);
+        out.userData.kind = 'tower';
+        out.userData.lamp = [-0.4, 9.1, 0];
         return out;
     };
 
@@ -2025,6 +2741,9 @@ define([], function() {
     };
 
     return {
+        motorGrader: motorGrader, waterTruck: waterTruck, bulldozer: bulldozer, lhd: lhd, jumbo: jumbo,
+        lightTower: lightTower,
+        part: part, pivot: pivot, setDump: setDump, animateShovel: animateShovel, setLoaderPose: setLoaderPose,
         BRAND: BRAND, badge: badge,
         siteOffice: siteOffice, crusherStation: crusherStation,
         mats: mats, rbox: rbox, bake: bake, tire: tire, haulTruck: haulTruck, ropeShovel: ropeShovel, drillRig: drillRig,
