@@ -1,5 +1,6 @@
 // MinasLab — motor curricular: 84 prácticas en catálogo PHP → motores por arquetipo (shell + escenas 3D/2D).
-define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/lab_practices'], function($, labui, scenes3d, labpractices) {
+define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/lab_practices',
+    'mod_minaslab/eval_three'], function($, labui, scenes3d, labpractices, threeLoader) {
     'use strict';
 
     var THREE = null;
@@ -135,8 +136,8 @@ define(['jquery', 'mod_minaslab/lab_ui', 'mod_minaslab/scenes3d', 'mod_minaslab/
         function tryEsModule() {
             var p;
             try {
-                /* import() dinámico: compatible con el build three.module.min.js recomendado por Three.js. */
-                p = import(moduleUrl);
+                /* Script de tipo módulo: evita que la transpilación AMD convierta import() en require(). */
+                p = threeLoader.load(moduleUrl);
             } catch (e) {
                 loadLegacyUmd();
                 return;
