@@ -6,7 +6,7 @@ namespace mod_minaslab\local;
 defined('MOODLE_INTERNAL') || die();
 
 /**
- * Catálogo curricular: 84 actividades (3 por asignatura) + utilidades de formulario.
+ * Catálogo curricular: 5 evaluaciones prácticas semestrales + 84 prácticas formativas.
  */
 final class activity_catalog {
 
@@ -14,7 +14,14 @@ final class activity_catalog {
      * @return array<string, array<string, mixed>>
      */
     public static function entries(): array {
-        return activity_catalog_data::entries();
+        return \mod_minaslab\local\evaluation\registry::catalog_entries() + activity_catalog_data::entries();
+    }
+
+    /**
+     * ¿La clave corresponde a una evaluación práctica calificada en servidor?
+     */
+    public static function is_evaluation(string $key): bool {
+        return \mod_minaslab\local\evaluation\registry::get($key) !== null;
     }
 
     public static function is_valid(string $key): bool {
@@ -45,12 +52,16 @@ final class activity_catalog {
             }
             $sub = $meta['subject_name'] ?? '';
             $title = $meta['title'] ?? $key;
-            $groups[$glabel][$key] = $sub . ': ' . $title;
+            if (!empty($meta['evaluation'])) {
+                $groups[$glabel][$key] = '★ ' . $title;
+            } else {
+                $groups[$glabel][$key] = $sub . ': ' . $title;
+            }
         }
         return $groups;
     }
 
     public static function default_key(): string {
-        return 's1_algebra_a';
+        return 'ev_s1_operaciones';
     }
 }
